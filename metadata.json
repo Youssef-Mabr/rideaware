@@ -1,0 +1,6 @@
+{
+  "name": "Geni",
+  "description": "AI smart helmet companion inspired by Ali Baba, guarding riders with 360° radar and voice intelligence",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
