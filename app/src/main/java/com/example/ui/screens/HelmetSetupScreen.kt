@@ -44,6 +44,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -99,9 +100,9 @@ fun HelmetSetupScreen(
   )
 
   // Stepwise check completion simulation
-  var completedCount by remember { mutableIntStateOf(0) }
-  var showAudioTestDialog by remember { mutableStateOf(false) }
-  var showCameraTestDialog by remember { mutableStateOf(false) }
+  var completedCount by rememberSaveable { mutableIntStateOf(0) }
+  var showAudioTestDialog by rememberSaveable { mutableStateOf(false) }
+  var showCameraTestDialog by rememberSaveable { mutableStateOf(false) }
 
   LaunchedEffect(Unit) {
     for (i in 1..checks.size) {
@@ -118,8 +119,8 @@ fun HelmetSetupScreen(
       .navigationBarsPadding()
   ) {
     RideAwareTopBar(
-      title = "Helmet Setup & Testing",
-      subtitle = "Diagnostic telemetry verification",
+      title = "Setup preview",
+      subtitle = "Step 4 of 4 · sample checks only",
       onBack = onBack
     )
 
@@ -137,13 +138,13 @@ fun HelmetSetupScreen(
       ) {
         Column {
           Text(
-            text = "Geni One Telemetry",
+            text = "Helmet checks",
             color = TextPrimary,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold
           )
           Text(
-            text = if (completedCount == checks.size) "All 8 diagnostic modules operational." else "Verifying helmet hardware...",
+            text = if (completedCount == checks.size) "All sample checks complete." else "Previewing sample checks...",
             color = if (completedCount == checks.size) TealPrimary else TextSecondary,
             fontSize = 12.sp
           )
@@ -271,7 +272,7 @@ fun HelmetSetupScreen(
         horizontalArrangement = Arrangement.spacedBy(10.dp)
       ) {
         GloveOutlinedButton(
-          text = "Test Audio",
+          text = "Audio preview",
           onClick = { showAudioTestDialog = true },
           icon = Icons.Filled.VolumeUp,
           modifier = Modifier.weight(1f),
@@ -279,7 +280,7 @@ fun HelmetSetupScreen(
         )
 
         GloveOutlinedButton(
-          text = "Test Cameras",
+          text = "Camera preview",
           onClick = { showCameraTestDialog = true },
           icon = Icons.Filled.CameraAlt,
           modifier = Modifier.weight(1f),
@@ -310,7 +311,7 @@ fun HelmetSetupScreen(
       onDismissRequest = { showAudioTestDialog = false },
       containerColor = DarkSurface,
       title = {
-        Text("Testing Helmet Speakers", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        Text("Audio test preview", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
       },
       text = {
         Column(
@@ -318,7 +319,7 @@ fun HelmetSetupScreen(
           modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
         ) {
           Text(
-            text = "Playing high-frequency intercom diagnostic tone & vocal prompt to helmet speakers.",
+            text = "This animation previews an audio check. No sound is played and no helmet speakers are connected.",
             color = TextSecondary,
             fontSize = 13.sp
           )
@@ -330,7 +331,7 @@ fun HelmetSetupScreen(
           )
           Spacer(modifier = Modifier.height(12.dp))
           Text(
-            text = "\"Genie: Intercom audio calibrated at 100% clarity.\"",
+            text = "Example prompt: Can you hear this sound?",
             color = TealAccent,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium
@@ -339,7 +340,7 @@ fun HelmetSetupScreen(
       },
       confirmButton = {
         GloveButton(
-          text = "Audio Sounds Good",
+          text = "Close preview",
           onClick = { showAudioTestDialog = false },
           modifier = Modifier.width(180.dp),
           testTag = "audio_dialog_confirm"
@@ -359,8 +360,8 @@ fun HelmetSetupScreen(
           horizontalArrangement = Arrangement.SpaceBetween,
           verticalAlignment = Alignment.CenterVertically
         ) {
-          Text("Camera Check (Dual Feed)", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-          IconButton(onClick = { showCameraTestDialog = false }, modifier = Modifier.size(28.dp)) {
+          Text("Camera illustrations", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+          IconButton(onClick = { showCameraTestDialog = false }, modifier = Modifier.size(48.dp)) {
             Icon(Icons.Filled.Close, contentDescription = "Close", tint = TextMuted)
           }
         }
@@ -388,7 +389,7 @@ fun HelmetSetupScreen(
       },
       confirmButton = {
         GloveButton(
-          text = "Cameras Confirmed Ready",
+          text = "Close preview",
           onClick = { showCameraTestDialog = false },
           modifier = Modifier.fillMaxWidth(),
           testTag = "camera_dialog_confirm"

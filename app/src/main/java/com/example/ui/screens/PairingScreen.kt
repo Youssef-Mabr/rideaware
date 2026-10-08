@@ -47,10 +47,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -63,6 +66,9 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.components.GloveButton
 import com.example.ui.components.GloveOutlinedButton
 import com.example.ui.components.RideAwareTopBar
+import com.example.ui.HelmetPairingState
+import com.example.ui.QrCameraScanner
+import com.example.helmet.HelmetQrCatalog
 import com.example.ui.theme.CyanAccent
 import com.example.ui.theme.DangerRed
 import com.example.ui.theme.DarkCanvas
@@ -76,7 +82,6 @@ import com.example.ui.theme.TealPrimary
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
-import kotlinx.coroutines.delay
 
 enum class PairingState {
   SCANNING,
@@ -87,13 +92,38 @@ enum class PairingState {
 
 @Composable
 fun PairingScreen(
+  pairingData: HelmetPairingState,
+  onSubmitQr: (String) -> Unit,
   onPairingComplete: () -> Unit,
   onBack: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  var pairingState by remember { mutableStateOf(PairingState.SCANNING) }
-  var showManualCodeDialog by remember { mutableStateOf(false) }
-  var manualCodeInput by remember { mutableStateOf("RA-8820") }
+  var pairingState by rememberSaveable { mutableStateOf(PairingState.SCANNING) }
+  var showManualCodeDialog by rememberSaveable { mutableStateOf(false) }
+  var manualCodeInput by rememberSaveable { mutableStateOf(HelmetQrCatalog.SAMPLE_HELMET_ID) }
+  var showCameraScanner by rememberSaveable { mutableStateOf(true) }
+
+  LaunchedEffect(pairingData.pairedHelmet, pairingData.operationError) {
+    if (pairingData.pairedHelmet != null) {
+      showCameraScanner = false
+      pairingState = PairingState.SUCCESS
+    } else if (pairingData.operationError != null) {
+      showCameraScanner = false
+      pairingState = PairingState.RETRY
+    }
+  }
+
+  if (showCameraScanner) {
+    QrCameraScanner(
+      onPayload = { payload ->
+        showCameraScanner = false
+        pairingState = PairingState.DISCOVERING
+        onSubmitQr(payload)
+      },
+      onClose = { showCameraScanner = false }
+    )
+    return
+  }
 
   // Laser scanner animation
   val infiniteTransition = rememberInfiniteTransition(label = "laserScan")
@@ -115,21 +145,22 @@ fun PairingScreen(
       .navigationBarsPadding()
   ) {
     RideAwareTopBar(
-      title = "Pair Helmet",
-      subtitle = "Connect to Geni One",
+      title = "Pairing preview",
+      subtitle = "Step 3 of 4 · simulated connection",
       onBack = onBack
     )
 
     Column(
       modifier = Modifier
         .weight(1f)
+        .verticalScroll(rememberScrollState())
         .padding(horizontal = 24.dp),
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.SpaceBetween
     ) {
       Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-          text = "Scan the QR code inside your helmet.",
+          text = "Try pairing a sample helmet",
           color = TextPrimary,
           fontSize = 20.sp,
           fontWeight = FontWeight.Bold,
@@ -195,7 +226,7 @@ fun PairingScreen(
               )
               Spacer(modifier = Modifier.height(10.dp))
               Text(
-                text = "Aligning QR Token...",
+                text = "Camera scan ready",
                 color = TextMuted,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium
@@ -221,7 +252,7 @@ fun PairingScreen(
                 fontWeight = FontWeight.Bold
               )
               Text(
-                text = "Negotiating Bluetooth & Wi-Fi tokens...",
+                text = "Preparing connection...",
                 color = TextSecondary,
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center
@@ -250,13 +281,13 @@ fun PairingScreen(
               }
               Spacer(modifier = Modifier.height(12.dp))
               Text(
-                text = "Geni One Connected!",
+                text = "Helmet selected",
                 color = TextPrimary,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold
               )
               Text(
-                text = "Secure pairing token verified",
+                text = "No Bluetooth connection was made",
                 color = SuccessGreen,
                 fontSize = 12.sp
               )
@@ -307,7 +338,7 @@ fun PairingScreen(
           .padding(horizontal = 14.dp, vertical = 6.dp)
       ) {
         Text(
-          text = "Bluetooth setup • Wi-Fi video • No cable",
+          text = "No real helmet or camera access required",
           color = TextSecondary,
           fontSize = 12.sp,
           fontWeight = FontWeight.Medium
@@ -336,9 +367,9 @@ fun PairingScreen(
         when (pairingState) {
           PairingState.SCANNING -> {
             GloveButton(
-              text = "Scan Helmet QR",
+              text = "Open camera scanner",
               onClick = {
-                pairingState = PairingState.DISCOVERING
+                showCameraScanner = true
               },
               icon = Icons.Filled.QrCodeScanner,
               testTag = "scan_helmet_qr_button"
@@ -355,12 +386,11 @@ fun PairingScreen(
           }
 
           PairingState.DISCOVERING -> {
-            LaunchedEffect(Unit) {
-              delay(1600)
-              pairingState = PairingState.SUCCESS
+            if (pairingData.operationInProgress) {
+              CircularProgressIndicator(color = TealPrimary, modifier = Modifier.size(24.dp))
             }
             GloveOutlinedButton(
-              text = "Cancel Pairing",
+              text = "Cancel pairing",
               onClick = { pairingState = PairingState.SCANNING },
               testTag = "cancel_pairing_button"
             )
@@ -394,19 +424,19 @@ fun PairingScreen(
       onDismissRequest = { showManualCodeDialog = false },
       containerColor = DarkSurface,
       title = {
-        Text("Enter Helmet Pairing Code", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        Text("Try a sample pairing code", fontWeight = FontWeight.Bold, fontSize = 18.sp)
       },
       text = {
         Column {
           Text(
-            text = "Enter the 6-character identifier printed near the helmet USB-C port.",
+            text = "Use the sample QR payload ${HelmetQrCatalog.SAMPLE_HELMET_ID} to test setup. This will not connect to real hardware.",
             color = TextSecondary,
             fontSize = 13.sp
           )
           Spacer(modifier = Modifier.height(12.dp))
           OutlinedTextField(
             value = manualCodeInput,
-            onValueChange = { manualCodeInput = it },
+            onValueChange = { manualCodeInput = it.uppercase().filter { character -> character.isLetterOrDigit() }.take(80) },
             singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(
               focusedTextColor = TextPrimary,
@@ -420,10 +450,12 @@ fun PairingScreen(
       },
       confirmButton = {
         GloveButton(
-          text = "Connect Helmet",
+          text = "Check QR code",
+          enabled = manualCodeInput.isNotBlank(),
           onClick = {
             showManualCodeDialog = false
             pairingState = PairingState.DISCOVERING
+            onSubmitQr(manualCodeInput)
           },
           modifier = Modifier.width(160.dp),
           testTag = "confirm_manual_code_button"

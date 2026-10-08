@@ -1,384 +1,272 @@
 package com.example.ui.screens
 
+import android.content.Context
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BatteryAlert
-import androidx.compose.material.icons.filled.ContactPhone
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.EmergencyContact
-import com.example.ui.components.GloveButton
+import com.example.model.validContact
 import com.example.ui.components.GloveOutlinedButton
 import com.example.ui.components.RideAwareTopBar
-import com.example.ui.theme.CyanAccent
-import com.example.ui.theme.DarkCanvas
-import com.example.ui.theme.DarkSurface
-import com.example.ui.theme.DarkSurfaceBorder
-import com.example.ui.theme.DarkSurfaceElevated
-import com.example.ui.theme.TealAccent
-import com.example.ui.theme.TealPrimary
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.*
 
 @Composable
 fun SettingsScreen(
-  emergencyContact: EmergencyContact,
+  emergencyContacts: List<EmergencyContact>,
+  contactsLoading: Boolean,
+  contactsError: String?,
+  contactOperationInProgress: Boolean,
+  contactOperationError: String?,
+  onAddContact: (EmergencyContact) -> Unit,
   onUpdateContact: (EmergencyContact) -> Unit,
+  onDeleteContact: (String) -> Unit,
+  onRetryContacts: () -> Unit,
+  onClearContactError: () -> Unit,
+  onOpenHelmetPairing: () -> Unit = {},
+  speedUnitKmH: Boolean = true,
+  onSpeedUnitChange: (Boolean) -> Unit = {},
   modifier: Modifier = Modifier
 ) {
-  var showEditContactDialog by remember { mutableStateOf(false) }
-  var contactName by remember { mutableStateOf(emergencyContact.name) }
-  var contactRelation by remember { mutableStateOf(emergencyContact.relationship) }
-  var contactPhone by remember { mutableStateOf(emergencyContact.phoneNumber) }
+  val context = LocalContext.current
+  val preferences = remember { context.getSharedPreferences("rideaware_preferences", Context.MODE_PRIVATE) }
+  var showEditContactDialog by rememberSaveable { mutableStateOf(false) }
+  var editingContactId by rememberSaveable { mutableStateOf<String?>(null) }
+  var contactName by rememberSaveable { mutableStateOf("") }
+  var contactRelation by rememberSaveable { mutableStateOf("") }
+  var contactPhone by rememberSaveable { mutableStateOf("") }
+  var pendingDeleteId by rememberSaveable { mutableStateOf<String?>(null) }
+  var crashSensitivity by remember { mutableStateOf(preferences.getString("sensitivity", "Medium") ?: "Medium") }
+  var lowBatteryThreshold by remember { mutableStateOf(preferences.getInt("battery_threshold", 20)) }
+  var wakeWord by remember { mutableStateOf(preferences.getBoolean("wake_word", true)) }
+  var showAboutDialog by rememberSaveable { mutableStateOf(false) }
 
-  // Preferences
-  var crashSensitivity by remember { mutableStateOf("Medium (Recommended)") }
-  var speedUnitKmH by remember { mutableStateOf(true) }
-  var lowBatteryThreshold by remember { mutableStateOf("20%") }
-  var wakeWordGenie by remember { mutableStateOf(true) }
-  var showAboutDialog by remember { mutableStateOf(false) }
-
-  Column(
-    modifier = modifier
-      .fillMaxSize()
-      .background(DarkCanvas)
-      .statusBarsPadding()
-  ) {
-    RideAwareTopBar(
-      title = "Settings",
-      subtitle = "Companion preferences & emergency SOS"
-    )
-
+  Column(modifier.fillMaxSize().background(DarkCanvas)) {
+    RideAwareTopBar("Settings", "Saved on this phone")
     Column(
-      modifier = Modifier
-        .weight(1f)
-        .verticalScroll(rememberScrollState())
-        .padding(horizontal = 20.dp, vertical = 6.dp),
-      verticalArrangement = Arrangement.spacedBy(16.dp)
+      Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
+      verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-      // 1. Emergency Contact Card
-      Text("Emergency SOS Contact", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-
-      Box(
-        modifier = Modifier
-          .fillMaxWidth()
-          .clip(RoundedCornerShape(18.dp))
-          .background(DarkSurface)
-          .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(18.dp))
-          .padding(16.dp)
-      ) {
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-              modifier = Modifier
-                .size(42.dp)
-                .background(TealPrimary.copy(alpha = 0.15f), CircleShape),
-              contentAlignment = Alignment.Center
-            ) {
-              Icon(Icons.Filled.ContactPhone, contentDescription = null, tint = TealPrimary, modifier = Modifier.size(22.dp))
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-              Text(
-                text = "${emergencyContact.name} (${emergencyContact.relationship})",
-                color = TextPrimary,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold
-              )
-              Text(
-                text = emergencyContact.phoneNumber,
-                color = TealAccent,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
-              )
-              Text(
-                text = "Automated crash coordinates receiver",
-                color = TextSecondary,
-                fontSize = 11.sp
-              )
-            }
+      Text("Manage your helmet preferences and emergency contacts.", color = TextSecondary, fontSize = 14.sp)
+      SettingsCard("Emergency contacts") {
+        Text("Saved securely to your account. No messages will be sent.", color = TextSecondary, fontSize = 13.sp)
+        when {
+          contactsLoading -> Row(
+            Modifier.fillMaxWidth().testTag("contacts_loading"),
+            horizontalArrangement = Arrangement.Center
+          ) { CircularProgressIndicator(color = TealPrimary, modifier = Modifier.size(28.dp)) }
+          contactsError != null -> {
+            Text(contactsError, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, modifier = Modifier.testTag("contacts_error"))
+            GloveOutlinedButton("Try again", onRetryContacts, testTag = "retry_contacts_button")
           }
-
-          IconButton(
-            onClick = { showEditContactDialog = true },
-            modifier = Modifier.testTag("edit_contact_button")
-          ) {
-            Icon(Icons.Filled.Edit, contentDescription = "Edit Contact", tint = TealPrimary)
+          emergencyContacts.isEmpty() -> Text(
+            "No emergency contacts yet. Add one before starting a ride.",
+            color = TextSecondary, fontSize = 14.sp, modifier = Modifier.testTag("contacts_empty")
+          )
+          else -> emergencyContacts.forEach { contact ->
+            Column(
+              Modifier.fillMaxWidth().background(DarkSurfaceElevated, RoundedCornerShape(14.dp)).padding(14.dp)
+                .testTag("contact_${contact.id}"),
+              verticalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+              Text(contact.name, color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+              if (contact.relationship.isNotBlank()) Text(contact.relationship, color = TextSecondary, fontSize = 13.sp)
+              Text(contact.phoneNumber, color = TealAccent, fontSize = 15.sp)
+              Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(
+                  onClick = {
+                    editingContactId = contact.id
+                    contactName = contact.name
+                    contactRelation = contact.relationship
+                    contactPhone = contact.phoneNumber
+                    onClearContactError()
+                    showEditContactDialog = true
+                  },
+                  enabled = !contactOperationInProgress,
+                  modifier = Modifier.testTag("edit_contact_${contact.id}")
+                ) { Text("Edit") }
+                TextButton(
+                  onClick = { pendingDeleteId = contact.id },
+                  enabled = !contactOperationInProgress,
+                  modifier = Modifier.testTag("delete_contact_${contact.id}")
+                ) { Text("Delete", color = DangerRed) }
+              }
+            }
           }
         }
+        if (contactOperationError != null) Text(
+          contactOperationError, color = MaterialTheme.colorScheme.error, fontSize = 13.sp,
+          modifier = Modifier.testTag("contact_operation_error")
+        )
+        GloveOutlinedButton("Add contact", {
+          editingContactId = null
+          contactName = ""
+          contactRelation = ""
+          contactPhone = ""
+          onClearContactError()
+          showEditContactDialog = true
+        }, testTag = "add_contact_button")
       }
-
-      // 2. Crash Detection Sensitivity
-      Text("Crash Sensor IMU Sensitivity", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-
-      Row(
-        modifier = Modifier
-          .fillMaxWidth()
-          .clip(RoundedCornerShape(14.dp))
-          .background(DarkSurface)
-          .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(14.dp))
-          .padding(4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-      ) {
-        listOf("Low", "Medium", "High").forEach { level ->
-          val isSelected = crashSensitivity.startsWith(level)
-          Box(
-            modifier = Modifier
-              .weight(1f)
-              .clip(RoundedCornerShape(10.dp))
-              .background(if (isSelected) TealPrimary else Color.Transparent)
-              .clickable {
-                crashSensitivity = when (level) {
-                  "Low" -> "Low (Track days)"
-                  "Medium" -> "Medium (Recommended)"
-                  else -> "High (City commuting)"
-                }
-              }
-              .padding(vertical = 10.dp)
-              .testTag("sens_tab_${level.lowercase()}"),
-            contentAlignment = Alignment.Center
-          ) {
-            Text(
-              text = level,
-              color = if (isSelected) Color(0xFF041912) else TextSecondary,
-              fontSize = 13.sp,
-              fontWeight = FontWeight.Bold
+      SettingsCard("Helmet pairing") {
+        Text("Pair a provisioned RideAware helmet QR to your account. The sample QR works without camera or hardware access.", color = TextSecondary, fontSize = 13.sp)
+        GloveOutlinedButton("Open helmet pairing", onOpenHelmetPairing, testTag = "open_helmet_pairing_button")
+      }
+      SettingsCard("Speed unit") {
+        Text("Changes the speed and distance shown during a ride. Ride history keeps its recorded units.", color = TextSecondary, fontSize = 13.sp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          FilterChip(
+            selected = speedUnitKmH, onClick = { onSpeedUnitChange(true) },
+            label = { Text("km/h · km") }, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("speed_unit_metric")
+          )
+          FilterChip(
+            selected = !speedUnitKmH, onClick = { onSpeedUnitChange(false) },
+            label = { Text("mph · mi") }, modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("speed_unit_imperial")
+          )
+        }
+      }
+      SettingsCard("Crash sensitivity preview") {
+        Text("A saved preference for the prototype; it does not control crash detection.", color = TextSecondary, fontSize = 13.sp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          listOf("Low", "Medium", "High").forEach { level ->
+            FilterChip(
+              selected = crashSensitivity == level,
+              onClick = {
+                crashSensitivity = level
+                preferences.edit().putString("sensitivity", level).apply()
+              },
+              label = { Text(level) },
+              modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("sens_tab_${level.lowercase()}")
             )
           }
         }
       }
-
-      // 3. Speed Unit Preference & Battery Alert Threshold
-      Text("Telemetry Preferences", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-
-      Column(
-        modifier = Modifier
-          .fillMaxWidth()
-          .clip(RoundedCornerShape(16.dp))
-          .background(DarkSurface)
-          .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(16.dp))
-          .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-      ) {
-        // Speed Unit (km/h vs mph)
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.Speed, contentDescription = null, tint = TealPrimary, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(10.dp))
-            Column {
-              Text("Speed Metrics Unit", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-              Text(if (speedUnitKmH) "Metric (km/h)" else "Imperial (mph)", color = TextSecondary, fontSize = 11.sp)
-            }
+      SettingsCard("Battery reminder preview") {
+        Text("Choose the battery level for a low-battery warning.", color = TextSecondary, fontSize = 13.sp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          listOf(15, 20, 25).forEach { threshold ->
+            FilterChip(
+              selected = lowBatteryThreshold == threshold,
+              onClick = {
+                lowBatteryThreshold = threshold
+                preferences.edit().putInt("battery_threshold", threshold).apply()
+              },
+              label = { Text("$threshold%") },
+              modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+            )
           }
-
-          Row(
-            modifier = Modifier
-              .clip(RoundedCornerShape(8.dp))
-              .background(DarkSurfaceElevated)
-              .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(8.dp))
-              .clickable { speedUnitKmH = !speedUnitKmH }
-              .padding(horizontal = 10.dp, vertical = 6.dp)
-              .testTag("toggle_speed_unit")
-          ) {
-            Text(if (speedUnitKmH) "km/h" else "mph", color = TealAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-          }
-        }
-
-        // Low Battery Threshold
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.BatteryAlert, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(10.dp))
-            Column {
-              Text("Low Battery Audio Warning", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-              Text("Warning prompt before auto-sleep", color = TextSecondary, fontSize = 11.sp)
-            }
-          }
-
-          Row(
-            modifier = Modifier
-              .clip(RoundedCornerShape(8.dp))
-              .background(DarkSurfaceElevated)
-              .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(8.dp))
-              .clickable {
-                lowBatteryThreshold = when (lowBatteryThreshold) {
-                  "15%" -> "20%"
-                  "20%" -> "25%"
-                  else -> "15%"
-                }
-              }
-              .padding(horizontal = 10.dp, vertical = 6.dp)
-              .testTag("toggle_battery_threshold")
-          ) {
-            Text(lowBatteryThreshold, color = TealAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-          }
-        }
-
-        // Voice Assistant Wake Word
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.Mic, contentDescription = null, tint = TealPrimary, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(10.dp))
-            Column {
-              Text("Wake Word \"Hey Genie\"", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-              Text("Hands-free microphone detection", color = TextSecondary, fontSize = 11.sp)
-            }
-          }
-          Switch(
-            checked = wakeWordGenie,
-            onCheckedChange = { wakeWordGenie = it },
-            colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF041912), checkedTrackColor = TealPrimary)
-          )
         }
       }
-
-      // About Geni Button
-      GloveOutlinedButton(
-        text = "About Geni & Architecture",
-        onClick = { showAboutDialog = true },
-        icon = Icons.Filled.Info,
-        testTag = "about_geni_button"
-      )
-
-      Spacer(modifier = Modifier.height(20.dp))
+      SettingsCard("Voice activation preview") {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+          Text("Use “Hey Geni”", color = TextPrimary, fontSize = 16.sp, modifier = Modifier.weight(1f))
+          Switch(
+            checked = wakeWord,
+            onCheckedChange = {
+              wakeWord = it
+              preferences.edit().putBoolean("wake_word", it).apply()
+            },
+            modifier = Modifier.semantics { contentDescription = "Voice activation preview" }
+          )
+        }
+        Text("The microphone is not listening. Try the sample prompts in the Geni tab.", color = TextSecondary, fontSize = 13.sp)
+      }
+      GloveOutlinedButton("About Geni", { showAboutDialog = true }, testTag = "about_geni_button")
+      Spacer(Modifier.height(16.dp))
     }
   }
 
-  // Edit Emergency Contact Dialog
   if (showEditContactDialog) {
+    val valid = validContact(contactName, contactPhone) && contactRelation.isNotBlank()
     AlertDialog(
       onDismissRequest = { showEditContactDialog = false },
       containerColor = DarkSurface,
-      title = { Text("Edit Emergency SOS Contact", color = TextPrimary, fontWeight = FontWeight.Bold) },
+      title = { Text(if (editingContactId == null) "Add emergency contact" else "Edit emergency contact") },
       text = {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
           OutlinedTextField(
-            value = contactName,
-            onValueChange = { contactName = it },
-            label = { Text("Contact Name") },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary)
+            value = contactName, onValueChange = { if (it.length <= 80) contactName = it }, label = { Text("Name") },
+            singleLine = true, modifier = Modifier.fillMaxWidth().testTag("contact_name")
           )
           OutlinedTextField(
-            value = contactRelation,
-            onValueChange = { contactRelation = it },
-            label = { Text("Relationship") },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary)
+            value = contactRelation, onValueChange = { if (it.length <= 50) contactRelation = it }, label = { Text("Relationship") },
+            singleLine = true, modifier = Modifier.fillMaxWidth().testTag("contact_relationship")
           )
           OutlinedTextField(
-            value = contactPhone,
-            onValueChange = { contactPhone = it },
-            label = { Text("Phone Number") },
-            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary)
+            value = contactPhone, onValueChange = { if (it.length <= 30) contactPhone = it }, label = { Text("Phone number") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            singleLine = true,
+            isError = contactPhone.isNotEmpty() && !validContact("Contact", contactPhone),
+            supportingText = { Text("Include the country code, for example +65 8123 4567. Use 7–15 digits.") },
+            modifier = Modifier.fillMaxWidth().testTag("contact_phone")
           )
+          Text("Saved to your account. Emergency messaging is not connected yet.", color = TextSecondary, fontSize = 13.sp)
         }
       },
       confirmButton = {
-        GloveButton(
-          text = "Save Contact",
+        TextButton(
+          enabled = valid && !contactOperationInProgress,
           onClick = {
-            onUpdateContact(EmergencyContact(contactName, contactRelation, contactPhone))
+            val contact = EmergencyContact(
+              id = editingContactId.orEmpty(), name = contactName.trim(),
+              relationship = contactRelation.trim(), phoneNumber = contactPhone.trim(), phone = contactPhone.trim()
+            )
+            if (editingContactId == null) onAddContact(contact) else onUpdateContact(contact)
             showEditContactDialog = false
           },
-          modifier = Modifier.width(140.dp),
-          testTag = "save_contact_button"
-        )
+          modifier = Modifier.heightIn(min = 48.dp).testTag("save_contact_button")
+        ) { Text(if (contactOperationInProgress) "Saving…" else "Save contact") }
       },
-      dismissButton = {
-        TextButton(onClick = { showEditContactDialog = false }) {
-          Text("Cancel", color = TextSecondary)
-        }
-      }
+      dismissButton = { TextButton(onClick = { showEditContactDialog = false }) { Text("Cancel") } }
     )
   }
-
-  // About Prototype Dialog
+  pendingDeleteId?.let { contactId ->
+    val contactNameForDelete = emergencyContacts.firstOrNull { it.id == contactId }?.name ?: "this contact"
+    AlertDialog(
+      onDismissRequest = { if (!contactOperationInProgress) pendingDeleteId = null },
+      title = { Text("Delete emergency contact?") },
+      text = { Text("$contactNameForDelete will be removed from your account.") },
+      confirmButton = {
+        TextButton(
+          enabled = !contactOperationInProgress,
+          onClick = { onDeleteContact(contactId); pendingDeleteId = null },
+          modifier = Modifier.testTag("confirm_delete_contact")
+        ) { Text("Delete", color = DangerRed) }
+      },
+      dismissButton = { TextButton(onClick = { pendingDeleteId = null }) { Text("Cancel") } }
+    )
+  }
   if (showAboutDialog) {
     AlertDialog(
       onDismissRequest = { showAboutDialog = false },
-      containerColor = DarkSurface,
-      title = { Text("About Geni Prototype", color = TextPrimary, fontWeight = FontWeight.Bold) },
-      text = {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-          Text("Geni Companion v1.0.0", color = TealAccent, fontWeight = FontWeight.Bold)
-          Text("AI smart helmet companion inspired by Ali Baba, guarding riders with 360° radar and voice intelligence.", color = TextSecondary, fontSize = 12.sp)
-          Spacer(modifier = Modifier.height(6.dp))
-          Text("Architecture Principles:", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-          Text("• Wireless BLE + 5GHz Wi-Fi dual video stream (zero cables)", color = TextSecondary, fontSize = 11.sp)
-          Text("• Offline edge risk detection (no cloud dependency for alerts)", color = TextSecondary, fontSize = 11.sp)
-          Text("• Glove-friendly high-contrast UI with 56dp+ touch targets", color = TextSecondary, fontSize = 11.sp)
-          Text("• Distraction-free: phone stays safely in rider's pocket", color = TextSecondary, fontSize = 11.sp)
-        }
-      },
-      confirmButton = {
-        GloveButton(
-          text = "Close",
-          onClick = { showAboutDialog = false },
-          modifier = Modifier.width(100.dp),
-          testTag = "about_close_button"
-        )
-      }
+      title = { Text("Geni · interactive prototype") },
+      text = { Text("Explore a smart helmet companion using sample rides, camera illustrations and scripted voice responses.\n\nBluetooth pairing, recording, cloud backup, crash detection and emergency messaging are not connected. Use the app while parked.") },
+      confirmButton = { TextButton(onClick = { showAboutDialog = false }) { Text("Close") } }
     )
+  }
+}
+
+@Composable
+private fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+  Column(
+    Modifier.fillMaxWidth().background(DarkSurface, RoundedCornerShape(18.dp)).padding(16.dp),
+    verticalArrangement = Arrangement.spacedBy(12.dp)
+  ) {
+    Text(title, color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    content()
   }
 }

@@ -70,21 +70,21 @@ fun FeatureIntroScreen(
     FeatureCardItem(
       number = "01",
       title = "See both directions",
-      description = "Front and rear cameras keep the full ride in view with real-time blind zone radar.",
+      description = "Explore illustrated front and rear camera views and sample hazard warnings.",
       icon = Icons.Filled.CameraAlt,
       tintColor = TealPrimary
     ),
     FeatureCardItem(
       number = "02",
-      title = "Ask without touching",
-      description = "Genie handles directions, translation, and quick assistance by voice without gloves on your phone.",
+      title = "Try a voice preview",
+      description = "Choose a prompt to see a scripted Geni response. The microphone is off.",
       icon = Icons.Filled.Mic,
       tintColor = CyanAccent
     ),
     FeatureCardItem(
       number = "03",
-      title = "Protect what matters",
-      description = "Important risk events are saved automatically with synchronized time and GPS location.",
+      title = "Review sample events",
+      description = "Browse example ride events and clip previews. No footage is recorded or stored.",
       icon = Icons.Filled.Security,
       tintColor = Color(0xFF38BDF8)
     )
@@ -99,7 +99,7 @@ fun FeatureIntroScreen(
   ) {
     RideAwareTopBar(
       title = "Why Geni",
-      subtitle = "Key helmet capabilities",
+      subtitle = "Step 1 of 4 · explore the concept",
       onBack = onBack
     )
 
@@ -111,7 +111,7 @@ fun FeatureIntroScreen(
       verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
       Text(
-        text = "Engineered for pure rider focus.",
+        text = "Get to know Geni.",
         color = TextPrimary,
         fontSize = 24.sp,
         fontWeight = FontWeight.Bold,
@@ -153,6 +153,7 @@ fun FeatureIntroScreen(
               ) {
                 Text(
                   text = item.title,
+                  modifier = Modifier.weight(1f),
                   color = TextPrimary,
                   fontSize = 17.sp,
                   fontWeight = FontWeight.Bold

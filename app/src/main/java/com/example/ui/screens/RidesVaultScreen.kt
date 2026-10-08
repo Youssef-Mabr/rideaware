@@ -35,9 +35,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.example.ui.components.RideHistoryStatus
+import java.util.Locale
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -68,15 +72,18 @@ enum class VaultFilterTab {
 fun RidesVaultScreen(
   rides: List<RideSummary>,
   onSelectRide: (RideSummary) -> Unit,
-  modifier: Modifier = Modifier
+  modifier: Modifier = Modifier,
+  isLoading: Boolean = false,
+  errorMessage: String? = null,
+  onRetry: () -> Unit = {}
 ) {
-  var selectedTab by remember { mutableStateOf(VaultFilterTab.ALL) }
+  var selectedTab by rememberSaveable { mutableStateOf(VaultFilterTab.ALL) }
 
   val filteredRides = remember(selectedTab, rides) {
     when (selectedTab) {
       VaultFilterTab.ALL -> rides
       VaultFilterTab.PROTECTED -> rides.filter { it.safetyEventCount > 0 }
-      VaultFilterTab.FAVORITES -> rides.take(1)
+      VaultFilterTab.FAVORITES -> rides.filter { it.isFavorite }
     }
   }
 
@@ -119,7 +126,7 @@ fun RidesVaultScreen(
               .weight(1f)
               .clip(RoundedCornerShape(10.dp))
               .background(if (isSelected) TealPrimary else Color.Transparent)
-              .clickable { selectedTab = tab }
+              .clickable(role = Role.Button) { selectedTab = tab }
               .padding(vertical = 10.dp)
               .testTag("vault_tab_${tab.name.lowercase()}"),
             contentAlignment = Alignment.Center
@@ -137,6 +144,25 @@ fun RidesVaultScreen(
 
     Spacer(modifier = Modifier.height(10.dp))
 
+    if (isLoading || errorMessage != null || filteredRides.isEmpty()) {
+      val emptyTitle = when (selectedTab) {
+        VaultFilterTab.ALL -> "No rides yet"
+        VaultFilterTab.PROTECTED -> "No protected events yet"
+        VaultFilterTab.FAVORITES -> "No favorite rides yet"
+      }
+      RideHistoryStatus(
+        title = if (isLoading) "Loading your rides" else if (errorMessage != null) "Couldn't load rides" else emptyTitle,
+        message = errorMessage ?: if (isLoading) "Fetching your saved ride history…" else when (selectedTab) {
+          VaultFilterTab.ALL -> "Your completed rides will appear here."
+          VaultFilterTab.PROTECTED -> "Rides with saved safety events will appear here."
+          VaultFilterTab.FAVORITES -> "Rides marked as favorites will appear here."
+        },
+        loading = isLoading,
+        onRetry = if (errorMessage != null) onRetry else null
+      )
+      return@Column
+    }
+
     // List of Ride Cards
     LazyColumn(
       modifier = Modifier
@@ -144,11 +170,11 @@ fun RidesVaultScreen(
         .padding(horizontal = 20.dp),
       verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-      items(filteredRides) { ride ->
+      items(filteredRides, key = { it.id }) { ride ->
         Card(
           modifier = Modifier
             .fillMaxWidth()
-            .clickable { onSelectRide(ride) }
+            .clickable(role = Role.Button) { onSelectRide(ride) }
             .testTag("ride_card_${ride.id}"),
           shape = RoundedCornerShape(18.dp),
           colors = CardDefaults.cardColors(containerColor = DarkSurface),
@@ -205,15 +231,15 @@ fun RidesVaultScreen(
               // Duration & Distance
               Column {
                 Text("DISTANCE & TIME", color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                Text("${ride.distanceKm} km • ${ride.durationMinutes}m", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("${String.format(Locale.getDefault(), "%.1f", ride.distanceKm)} km • ${ride.durationLabel}", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
               }
 
               // Safety Score
               Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("SAFETY", color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                  Text("${ride.safetyScore}", color = TealPrimary, fontSize = 14.sp, fontWeight = FontWeight.Black)
-                  Text("/100", color = TextMuted, fontSize = 10.sp)
+                  Text(if (ride.hasSafetyScore) "${ride.safetyScore}" else "—", color = TealPrimary, fontSize = 14.sp, fontWeight = FontWeight.Black)
+                  if (ride.hasSafetyScore) Text("/100", color = TextMuted, fontSize = 10.sp)
                 }
               }
 

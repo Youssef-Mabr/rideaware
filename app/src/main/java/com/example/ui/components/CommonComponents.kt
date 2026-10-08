@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -63,6 +64,7 @@ import com.example.model.CameraSource
 import com.example.ui.theme.CyanAccent
 import com.example.ui.theme.DangerGlow
 import com.example.ui.theme.DangerRed
+import com.example.ui.theme.DangerContainer
 import com.example.ui.theme.DarkCanvas
 import com.example.ui.theme.DarkSurface
 import com.example.ui.theme.DarkSurfaceBorder
@@ -91,7 +93,7 @@ fun GloveButton(
   isDanger: Boolean = false,
   testTag: String = "glove_button"
 ) {
-  val baseColor = if (isDanger) DangerRed else TealPrimary
+  val baseColor = if (isDanger) DangerContainer else TealPrimary
   val contentColor = if (isDanger) Color.White else Color(0xFF020408)
 
   Button(
@@ -99,7 +101,7 @@ fun GloveButton(
     enabled = enabled,
     modifier = modifier
       .fillMaxWidth()
-      .height(56.dp)
+      .heightIn(min = 56.dp)
       .testTag(testTag),
     shape = RoundedCornerShape(18.dp),
     colors = ButtonDefaults.buttonColors(
@@ -149,7 +151,7 @@ fun GloveOutlinedButton(
     onClick = onClick,
     modifier = modifier
       .fillMaxWidth()
-      .height(52.dp)
+      .heightIn(min = 56.dp)
       .testTag(testTag),
     shape = RoundedCornerShape(16.dp),
     colors = ButtonDefaults.outlinedButtonColors(contentColor = textColor),
@@ -176,7 +178,7 @@ fun StatusPill(
   label: String,
   isActive: Boolean,
   modifier: Modifier = Modifier,
-  activeColor: Color = TealPrimary,
+  activeColor: Color = SuccessGreen,
   inactiveColor: Color = TextMuted
 ) {
   val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -243,7 +245,7 @@ fun RideAwareTopBar(
       IconButton(
         onClick = onBack,
         modifier = Modifier
-          .size(44.dp)
+          .size(48.dp)
           .background(DarkSurfaceElevated, CircleShape)
           .border(1.dp, DarkSurfaceBorder, CircleShape)
           .testTag("top_bar_back_button")
@@ -263,7 +265,7 @@ fun RideAwareTopBar(
         color = TextPrimary,
         fontSize = 18.sp,
         fontWeight = FontWeight.Bold,
-        maxLines = 1,
+        maxLines = 2,
         overflow = TextOverflow.Ellipsis
       )
       if (subtitle != null) {
@@ -271,7 +273,7 @@ fun RideAwareTopBar(
           text = subtitle,
           color = TextSecondary,
           fontSize = 12.sp,
-          maxLines = 1,
+          maxLines = 3,
           overflow = TextOverflow.Ellipsis
         )
       }
@@ -308,13 +310,13 @@ fun MetricCard(
         horizontalArrangement = Arrangement.SpaceBetween,
         modifier = Modifier.fillMaxWidth()
       ) {
-        Text(text = title, color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Text(text = title, color = TextSecondary, fontSize = 13.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
         if (icon != null) {
           Icon(imageVector = icon, contentDescription = null, tint = accentColor, modifier = Modifier.size(16.dp))
         }
       }
       Spacer(modifier = Modifier.height(6.dp))
-      Row(verticalAlignment = Alignment.Bottom) {
+      Column {
         Text(
           text = value,
           color = TextPrimary,
@@ -622,7 +624,7 @@ fun SimulatedRoadScene(
         )
         Spacer(modifier = Modifier.width(6.dp))
         Text(
-          text = if (isRear) "LIVE • REAR 1080p60" else "LIVE • FRONT 1080p60",
+          text = if (isRear) "REAR CAMERA" else "FRONT CAMERA",
           color = TextPrimary,
           fontSize = 11.sp,
           fontWeight = FontWeight.Bold
@@ -630,7 +632,7 @@ fun SimulatedRoadScene(
       }
 
       Text(
-        text = "2026-09-06 08:16:32",
+        text = "Sample scene",
         color = TextSecondary,
         fontSize = 10.sp,
         fontWeight = FontWeight.Medium

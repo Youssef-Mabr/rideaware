@@ -1,0 +1,116 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function validContact(data) {
+      return data.keys().hasAll(['name', 'phoneNumber', 'relationship', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'phoneNumber', 'relationship', 'createdAt', 'updatedAt'])
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 80
+        && data.phoneNumber is string
+        && data.phoneNumber.size() >= 7
+        && data.phoneNumber.size() <= 30
+        && data.phoneNumber.matches('^[0-9+ ().-]{7,30}$')
+        && data.relationship is string
+        && data.relationship.size() > 0
+        && data.relationship.size() <= 50
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function validSosLocation(data) {
+      return (data.locationStatus == 'available'
+          && data.keys().hasAll(['location'])
+          && data.location is map
+          && data.location.keys().hasAll(['latitude', 'longitude', 'accuracy', 'capturedAt'])
+          && data.location.keys().hasOnly(['latitude', 'longitude', 'accuracy', 'capturedAt'])
+          && data.location.latitude is number
+          && data.location.latitude >= -90 && data.location.latitude <= 90
+          && data.location.longitude is number
+          && data.location.longitude >= -180 && data.location.longitude <= 180
+          && data.location.accuracy is number
+          && data.location.accuracy >= 0 && data.location.accuracy <= 20000000
+          && data.location.capturedAt is timestamp
+          && data.location.capturedAt > timestamp.date(1970, 1, 1))
+        || (data.locationStatus in ['permission_denied', 'disabled', 'timeout', 'unavailable']
+          && !data.keys().hasAny(['location']));
+    }
+
+    function validTriggeredSosEvent(data) {
+      return data.keys().hasAll(['status', 'source', 'contactId', 'createdAt', 'locationStatus'])
+        && data.keys().hasOnly(['status', 'source', 'contactId', 'createdAt', 'locationStatus', 'location'])
+        && validSosLocation(data)
+        && data.status == 'triggered'
+        && data.source == 'simulated_helmet_button'
+        && data.contactId is string
+        && data.contactId.size() > 0
+        && data.createdAt is timestamp;
+    }
+
+    function hasValidHelmetPairing(data) {
+      return (!data.keys().hasAny(['helmetId', 'helmetPairedAt']))
+        || (data.keys().hasAll(['helmetId', 'helmetPairedAt'])
+          && data.helmetId == 'RA-DEMO-001'
+          && data.helmetPairedAt is timestamp);
+    }
+
+    function validHelmetPairingChange() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return !changed.hasAny(['helmetId', 'helmetPairedAt'])
+        || (changed.hasOnly(['helmetId', 'helmetPairedAt'])
+          && ((request.resource.data.keys().hasAll(['helmetId', 'helmetPairedAt'])
+              && request.resource.data.helmetId == 'RA-DEMO-001'
+              && request.resource.data.helmetPairedAt == request.time)
+            || (!request.resource.data.keys().hasAny(['helmetId', 'helmetPairedAt'])
+              && resource.data.keys().hasAll(['helmetId', 'helmetPairedAt']))));
+    }
+
+    match /users/{userId} {
+      allow read, delete: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && hasValidHelmetPairing(request.resource.data)
+        && (!request.resource.data.keys().hasAny(['helmetId', 'helmetPairedAt'])
+          || request.resource.data.helmetPairedAt == request.time);
+      allow update: if isOwner(userId)
+        && hasValidHelmetPairing(request.resource.data)
+        && validHelmetPairingChange();
+
+      match /rides/{rideId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+
+      match /emergencyContacts/{contactId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && validContact(request.resource.data)
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.updatedAt == request.time;
+        allow update: if isOwner(userId)
+          && validContact(request.resource.data)
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['name', 'phoneNumber', 'relationship', 'updatedAt']);
+        allow delete: if isOwner(userId);
+      }
+
+      match /sosEvents/{eventId} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && validTriggeredSosEvent(request.resource.data)
+          && request.resource.data.createdAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId)/emergencyContacts/$(request.resource.data.contactId));
+        allow update: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

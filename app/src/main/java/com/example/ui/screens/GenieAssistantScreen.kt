@@ -36,6 +36,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,6 +48,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -58,6 +63,7 @@ import com.example.model.GenieState
 import com.example.model.VoiceConversation
 import com.example.ui.components.AudioWaveformVisualizer
 import com.example.ui.components.RideAwareTopBar
+import com.example.ui.GeminiAssistantState
 import com.example.ui.theme.CyanAccent
 import com.example.ui.theme.DarkCanvas
 import com.example.ui.theme.DarkSurface
@@ -69,19 +75,49 @@ import com.example.ui.theme.TealPrimary
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import android.Manifest
+import android.content.pm.PackageManager
+import com.example.ai.GeminiLiveVoiceState
+import com.example.ui.GeminiLiveVoiceViewModel
 import kotlinx.coroutines.delay
 
 @Composable
 fun GenieAssistantScreen(
-  modifier: Modifier = Modifier
+  assistantState: GeminiAssistantState = GeminiAssistantState(),
+  onAsk: (String) -> Unit = {},
+  voiceState: GeminiLiveVoiceState = GeminiLiveVoiceState.DISCONNECTED,
+  onVoiceStart: () -> Unit = {},
+  onVoiceStop: () -> Unit = {},
+  modifier: Modifier = Modifier,
+  onBack: (() -> Unit)? = null
 ) {
-  var genieState by remember { mutableStateOf(GenieState.SPEAKING) }
+  var genieState by remember { mutableStateOf(GenieState.IDLE) }
+  var prompt by remember { mutableStateOf("Hello, introduce yourself as the RideAware assistant.") }
+  var lastGeminiResponse by remember { mutableStateOf<String?>(null) }
+  val context = LocalContext.current
+  val microphoneLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+    if (granted) onVoiceStart()
+  }
   val conversations = remember {
     mutableStateListOf<VoiceConversation>().apply {
       addAll(MockDataProvider.sampleConversations)
     }
   }
   val listState = rememberLazyListState()
+  LaunchedEffect(conversations.size) {
+    if (conversations.isNotEmpty()) listState.animateScrollToItem(conversations.lastIndex)
+  }
+  LaunchedEffect(assistantState.response) {
+    assistantState.response?.takeIf { it != lastGeminiResponse }?.let {
+      lastGeminiResponse = it
+      conversations.add(VoiceConversation(prompt, it))
+      genieState = GenieState.SPEAKING
+    }
+  }
 
   // Glowing orb animation
   val infiniteTransition = rememberInfiniteTransition(label = "orbPulse")
@@ -108,8 +144,9 @@ fun GenieAssistantScreen(
       .statusBarsPadding()
   ) {
     RideAwareTopBar(
-      title = "Geni AI Voice Assistant",
-      subtitle = "Hands-free helmet companion • Inspired by Ali Baba"
+      title = "Geni voice preview",
+      onBack = onBack,
+      subtitle = "Scripted examples · microphone is off"
     )
 
     Column(
@@ -170,13 +207,13 @@ fun GenieAssistantScreen(
           Spacer(modifier = Modifier.width(8.dp))
           Text(
             text = when (genieState) {
-              GenieState.LISTENING -> "LISTENING TO HELMET MIC..."
-              GenieState.THINKING -> "PROCESSING QUERY..."
-              GenieState.SPEAKING -> "SPEAKING TO INTERCOM"
-              GenieState.IDLE -> "READY • SAY \"HEY GENI\""
+              GenieState.LISTENING -> "PREVIEWING YOUR PROMPT..."
+              GenieState.THINKING -> "LOADING SAMPLE RESPONSE..."
+              GenieState.SPEAKING -> "SAMPLE RESPONSE"
+              GenieState.IDLE -> "READY • SELECT A SAMPLE PROMPT"
             },
             color = TealAccent,
-            fontSize = 11.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = 0.5.sp
           )
@@ -190,6 +227,20 @@ fun GenieAssistantScreen(
           color = TealPrimary,
           modifier = Modifier.width(180.dp).height(28.dp)
         )
+
+        Button(
+          onClick = {
+            if (voiceState == GeminiLiveVoiceState.DISCONNECTED || voiceState == GeminiLiveVoiceState.ERROR) {
+              if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) onVoiceStart()
+              else microphoneLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            } else onVoiceStop()
+          },
+          modifier = Modifier.testTag("gemini_voice_toggle")
+        ) {
+          Icon(Icons.Filled.Mic, contentDescription = null)
+          Spacer(Modifier.width(6.dp))
+          Text(if (voiceState == GeminiLiveVoiceState.DISCONNECTED || voiceState == GeminiLiveVoiceState.ERROR) "Start voice" else "Stop voice")
+        }
       }
 
       Spacer(modifier = Modifier.height(10.dp))
@@ -261,11 +312,31 @@ fun GenieAssistantScreen(
 
       Spacer(modifier = Modifier.height(10.dp))
 
+      OutlinedTextField(
+        value = prompt,
+        onValueChange = { prompt = it },
+        label = { Text("Ask RideAware") },
+        enabled = !assistantState.loading,
+        singleLine = false,
+        modifier = Modifier.fillMaxWidth().testTag("gemini_prompt_input")
+      )
+      Button(
+        onClick = { genieState = GenieState.THINKING; onAsk(prompt) },
+        enabled = !assistantState.loading && prompt.isNotBlank(),
+        modifier = Modifier.fillMaxWidth().testTag("gemini_send_button")
+      ) {
+        if (assistantState.loading) CircularProgressIndicator(modifier = Modifier.size(18.dp))
+        else Text("Send to Gemini")
+      }
+      assistantState.error?.let { error ->
+        Text(error, color = Color(0xFFFF8A80), fontSize = 12.sp, modifier = Modifier.testTag("gemini_error"))
+      }
+
       // Example Voice Command Suggestion Chips
       Text(
-        text = "Tap a suggested voice command to test:",
+        text = "Choose a sample prompt:",
         color = TextSecondary,
-        fontSize = 11.sp,
+        fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
         modifier = Modifier.align(Alignment.Start)
       )
@@ -294,15 +365,15 @@ fun GenieAssistantScreen(
               .clip(RoundedCornerShape(10.dp))
               .background(DarkSurface)
               .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(10.dp))
-              .clickable {
+              .clickable(role = Role.Button) {
                 val s = suggestions[0]
                 conversations.add(VoiceConversation(s.first, s.second))
                 genieState = GenieState.SPEAKING
               }
-              .padding(horizontal = 8.dp, vertical = 6.dp)
+              .heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 12.dp)
               .testTag("genie_suggest_behind")
           ) {
-            Text(suggestions[0].first, color = TextPrimary, fontSize = 11.sp, maxLines = 1)
+            Text("Rear view", color = TextPrimary, fontSize = 14.sp)
           }
 
           Box(
@@ -311,15 +382,15 @@ fun GenieAssistantScreen(
               .clip(RoundedCornerShape(10.dp))
               .background(DarkSurface)
               .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(10.dp))
-              .clickable {
+              .clickable(role = Role.Button) {
                 val s = suggestions[1]
                 conversations.add(VoiceConversation(s.first, s.second))
                 genieState = GenieState.SPEAKING
               }
-              .padding(horizontal = 8.dp, vertical = 6.dp)
+              .heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 12.dp)
               .testTag("genie_suggest_battery")
           ) {
-            Text(suggestions[1].first, color = TextPrimary, fontSize = 11.sp, maxLines = 1)
+            Text("Battery", color = TextPrimary, fontSize = 14.sp)
           }
         }
 
@@ -333,15 +404,15 @@ fun GenieAssistantScreen(
               .clip(RoundedCornerShape(10.dp))
               .background(DarkSurface)
               .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(10.dp))
-              .clickable {
+              .clickable(role = Role.Button) {
                 val s = suggestions[2]
                 conversations.add(VoiceConversation(s.first, s.second))
                 genieState = GenieState.SPEAKING
               }
-              .padding(horizontal = 8.dp, vertical = 6.dp)
+              .heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 12.dp)
               .testTag("genie_suggest_petrol")
           ) {
-            Text(suggestions[2].first, color = TextPrimary, fontSize = 11.sp, maxLines = 1)
+            Text("Fuel stop", color = TextPrimary, fontSize = 14.sp)
           }
 
           Box(
@@ -350,15 +421,15 @@ fun GenieAssistantScreen(
               .clip(RoundedCornerShape(10.dp))
               .background(DarkSurface)
               .border(1.dp, DarkSurfaceBorder, RoundedCornerShape(10.dp))
-              .clickable {
+              .clickable(role = Role.Button) {
                 val s = suggestions[4]
                 conversations.add(VoiceConversation(s.first, s.second))
                 genieState = GenieState.SPEAKING
               }
-              .padding(horizontal = 8.dp, vertical = 6.dp)
+              .heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 12.dp)
               .testTag("genie_suggest_translate")
           ) {
-            Text(suggestions[4].first, color = TextPrimary, fontSize = 11.sp, maxLines = 1)
+            Text("Translate", color = TextPrimary, fontSize = 14.sp)
           }
         }
       }

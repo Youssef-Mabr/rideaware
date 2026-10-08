@@ -48,6 +48,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.example.ui.theme.DangerContainer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -97,18 +102,9 @@ fun SafetyAlertOverlay(
   val isHighRisk = alert.riskLevel == com.example.model.RiskLevel.HIGH
   val primaryColor = if (isHighRisk) DangerRed else WarningOrange
 
-  // Warning pulse animation
-  val infiniteTransition = rememberInfiniteTransition(label = "hazardPulse")
-  val pulseAlpha by infiniteTransition.animateFloat(
-    initialValue = 0.2f,
-    targetValue = 0.8f,
-    animationSpec = infiniteRepeatable(
-      animation = tween(500, easing = FastOutSlowInEasing),
-      repeatMode = RepeatMode.Reverse
-    ),
-    label = "pulseAlpha"
-  )
+  val pulseAlpha = 0.7f
 
+  Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
   Box(
     modifier = modifier
       .fillMaxSize()
@@ -132,6 +128,7 @@ fun SafetyAlertOverlay(
       Column(
         modifier = Modifier
           .fillMaxWidth()
+          .verticalScroll(rememberScrollState())
           .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
       ) {
@@ -152,9 +149,9 @@ fun SafetyAlertOverlay(
             Box(modifier = Modifier.size(8.dp).background(primaryColor, CircleShape))
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-              text = "RISK LEVEL: ${alert.riskLevel}",
+              text = "${alert.riskLevel} RISK",
               color = primaryColor,
-              fontSize = 11.sp,
+              fontSize = 12.sp,
               fontWeight = FontWeight.Black
             )
           }
@@ -170,7 +167,7 @@ fun SafetyAlertOverlay(
             Text(
               text = alert.direction.name.replace('_', ' '),
               color = TextPrimary,
-              fontSize = 11.sp,
+              fontSize = 12.sp,
               fontWeight = FontWeight.Bold
             )
           }
@@ -239,9 +236,9 @@ fun SafetyAlertOverlay(
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
               Text(
-                text = "Helmet Voice Chime:",
+                text = "Sample voice warning:",
                 color = TextMuted,
-                fontSize = 10.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
               )
               Text(
@@ -263,9 +260,9 @@ fun SafetyAlertOverlay(
 
         // Protected Clip Simulation Note
         Text(
-          text = "10 seconds before and 20 seconds after event protected.",
+          text = "Sample alert. No hazard was detected or video saved.",
           color = TextMuted,
-          fontSize = 11.sp,
+          fontSize = 12.sp,
           fontWeight = FontWeight.Medium,
           textAlign = TextAlign.Center
         )
@@ -278,7 +275,7 @@ fun SafetyAlertOverlay(
           verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
           GloveButton(
-            text = "Save Event (Protected)",
+            text = "Preview saving event",
             onClick = onSaveEvent,
             icon = Icons.Filled.Bookmark,
             testTag = "alert_save_event_button"
@@ -303,7 +300,7 @@ fun SafetyAlertOverlay(
                 .testTag("alert_sos_button"),
               shape = RoundedCornerShape(16.dp),
               colors = ButtonDefaults.buttonColors(
-                containerColor = DangerRed,
+                containerColor = DangerContainer,
                 contentColor = Color.White
               )
             ) {
@@ -318,4 +315,5 @@ fun SafetyAlertOverlay(
       }
     }
   }
+}
 }

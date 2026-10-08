@@ -37,10 +37,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.activity.compose.BackHandler
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -69,10 +76,12 @@ fun LiveCameraScreen(
   onBack: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  var currentSource by remember { mutableStateOf(CameraSource.FRONT) }
-  var isSplitView by remember { mutableStateOf(false) }
-  var showDetectionBoxes by remember { mutableStateOf(true) }
-  var isFullScreen by remember { mutableStateOf(false) }
+  var currentSource by rememberSaveable { mutableStateOf(CameraSource.FRONT) }
+  var isSplitView by rememberSaveable { mutableStateOf(false) }
+  var showDetectionBoxes by rememberSaveable { mutableStateOf(true) }
+  var isFullScreen by rememberSaveable { mutableStateOf(false) }
+
+  BackHandler(enabled = isFullScreen) { isFullScreen = false }
 
   Column(
     modifier = modifier
@@ -83,8 +92,8 @@ fun LiveCameraScreen(
   ) {
     if (!isFullScreen) {
       RideAwareTopBar(
-        title = "Live Helmet Feeds",
-        subtitle = if (isSplitView) "Dual Synchronized HUD" else "${if (currentSource == CameraSource.FRONT) "Front View" else "Rear Radar"} Stream",
+        title = "Camera preview",
+        subtitle = "Simulated scenes · no live video",
         onBack = onBack,
         actions = {
           IconButton(
@@ -184,16 +193,16 @@ fun LiveCameraScreen(
               .weight(1f)
               .clip(RoundedCornerShape(12.dp))
               .background(if (!isSplitView && currentSource == CameraSource.FRONT) TealPrimary else Color.Transparent)
-              .clickable {
+              .clickable(role = Role.Button) {
                 isSplitView = false
                 currentSource = CameraSource.FRONT
               }
-              .padding(vertical = 10.dp)
-              .testTag("tab_cam_front"),
+              .heightIn(min = 48.dp).padding(vertical = 10.dp)
+              .testTag("tab_cam_front").semantics { selected = !isSplitView && currentSource == CameraSource.FRONT },
             contentAlignment = Alignment.Center
           ) {
             Text(
-              text = "Front (1080p)",
+              text = "Front",
               color = if (!isSplitView && currentSource == CameraSource.FRONT) Color(0xFF020408) else TextSecondary,
               fontSize = 13.sp,
               fontWeight = FontWeight.Bold
@@ -206,16 +215,16 @@ fun LiveCameraScreen(
               .weight(1f)
               .clip(RoundedCornerShape(12.dp))
               .background(if (!isSplitView && currentSource == CameraSource.REAR) TealPrimary else Color.Transparent)
-              .clickable {
+              .clickable(role = Role.Button) {
                 isSplitView = false
                 currentSource = CameraSource.REAR
               }
-              .padding(vertical = 10.dp)
-              .testTag("tab_cam_rear"),
+              .heightIn(min = 48.dp).padding(vertical = 10.dp)
+              .testTag("tab_cam_rear").semantics { selected = !isSplitView && currentSource == CameraSource.REAR },
             contentAlignment = Alignment.Center
           ) {
             Text(
-              text = "Rear Radar",
+              text = "Rear",
               color = if (!isSplitView && currentSource == CameraSource.REAR) Color(0xFF020408) else TextSecondary,
               fontSize = 13.sp,
               fontWeight = FontWeight.Bold
@@ -228,13 +237,13 @@ fun LiveCameraScreen(
               .weight(1f)
               .clip(RoundedCornerShape(12.dp))
               .background(if (isSplitView) TealPrimary else Color.Transparent)
-              .clickable { isSplitView = true }
-              .padding(vertical = 10.dp)
-              .testTag("tab_cam_split"),
+              .clickable(role = Role.Button) { isSplitView = true }
+              .heightIn(min = 48.dp).padding(vertical = 10.dp)
+              .testTag("tab_cam_split").semantics { selected = isSplitView },
             contentAlignment = Alignment.Center
           ) {
             Text(
-              text = "Split Dual",
+              text = "Both",
               color = if (isSplitView) Color(0xFF020408) else TextSecondary,
               fontSize = 13.sp,
               fontWeight = FontWeight.Bold
@@ -252,7 +261,7 @@ fun LiveCameraScreen(
           Row(
             modifier = Modifier
               .weight(1f)
-              .height(52.dp)
+              .heightIn(min = 56.dp)
               .clip(RoundedCornerShape(14.dp))
               .background(DarkSurfaceElevated)
               .border(
@@ -260,9 +269,9 @@ fun LiveCameraScreen(
                 if (showDetectionBoxes) TealPrimary.copy(alpha = 0.5f) else DarkSurfaceBorder,
                 RoundedCornerShape(14.dp)
               )
-              .clickable { showDetectionBoxes = !showDetectionBoxes }
+              .clickable(role = Role.Button) { showDetectionBoxes = !showDetectionBoxes }
               .padding(horizontal = 12.dp)
-              .testTag("toggle_detection_boxes"),
+              .testTag("toggle_detection_boxes").semantics { stateDescription = if (showDetectionBoxes) "On" else "Off" },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
           ) {
@@ -286,7 +295,7 @@ fun LiveCameraScreen(
             onClick = onSaveMoment,
             modifier = Modifier
               .weight(1.3f)
-              .height(52.dp)
+              .heightIn(min = 56.dp)
               .testTag("live_camera_save_moment"),
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(

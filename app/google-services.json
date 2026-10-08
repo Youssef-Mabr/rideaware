@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "877478969127",
+    "project_id": "rideaware-dev",
+    "storage_bucket": "rideaware-dev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:877478969127:android:3c2e05d5fc4467234d3302",
+        "android_client_info": {
+          "package_name": "com.aistudio.rideaware.mh7k"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAsLXqVDezdxKmWzY8KXGag6ftlfjv-gP0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

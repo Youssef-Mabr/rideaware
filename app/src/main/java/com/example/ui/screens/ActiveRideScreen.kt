@@ -19,6 +19,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -42,6 +46,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -50,6 +55,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -62,6 +68,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.HelmetStatus
 import com.example.model.SafetyAlert
+import com.example.camera.CameraAnalysis
+import com.example.camera.CameraDetectionPipeline
 import com.example.ui.components.GloveButton
 import com.example.ui.components.GloveOutlinedButton
 import com.example.ui.components.StatusPill
@@ -84,6 +92,8 @@ import com.example.ui.theme.WarningOrange
 import com.example.ui.theme.WhiteBorder
 import com.example.ui.theme.WhiteGlass
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ActiveRideScreen(
@@ -95,13 +105,22 @@ fun ActiveRideScreen(
   onTriggerHazardAlert: () -> Unit,
   onTriggerCrashSos: () -> Unit,
   activeAlert: SafetyAlert? = null,
-  modifier: Modifier = Modifier
+  cameraAnalysisPipeline: CameraDetectionPipeline? = null,
+  onCameraAnalysis: (CameraAnalysis) -> Unit = {},
+  speedUnitKmH: Boolean = true,
+  modifier: Modifier = Modifier,
+  onRideMetricsChanged: (durationSeconds: Int, distanceKm: Float, maxSpeedKmH: Int) -> Unit = { _, _, _ -> }
 ) {
   // Simulated ride duration (seconds)
-  var rideSeconds by remember { mutableIntStateOf(342) } // starts at 5m 42s
+  var rideSeconds by rememberSaveable { mutableIntStateOf(0) }
   // Simulated realistic speed with subtle natural fluctuations (km/h)
-  var currentSpeed by remember { mutableIntStateOf(58) }
-  var distanceKm by remember { mutableFloatStateOf(4.2f) }
+  var currentSpeed by rememberSaveable { mutableIntStateOf(58) }
+  var distanceKm by rememberSaveable { mutableFloatStateOf(0f) }
+  var maxSpeedKmH by rememberSaveable { mutableIntStateOf(currentSpeed) }
+
+  SideEffect {
+    onRideMetricsChanged(rideSeconds, distanceKm, maxSpeedKmH)
+  }
 
   LaunchedEffect(Unit) {
     while (true) {
@@ -110,7 +129,20 @@ fun ActiveRideScreen(
       // Subtle realistic speed oscillation
       val variance = ((-3..3).random())
       currentSpeed = (currentSpeed + variance).coerceIn(46, 68)
+      maxSpeedKmH = maxOf(maxSpeedKmH, currentSpeed)
       distanceKm += (currentSpeed / 3600f)
+    }
+  }
+
+  LaunchedEffect(cameraAnalysisPipeline) {
+    if (cameraAnalysisPipeline != null) {
+      while (true) {
+        val analysis = withContext(Dispatchers.Default) {
+          cameraAnalysisPipeline.analyzeNextFrame()
+        }
+        onCameraAnalysis(analysis)
+        delay(1000)
+      }
     }
   }
 
@@ -137,9 +169,14 @@ fun ActiveRideScreen(
       .statusBarsPadding()
       .navigationBarsPadding()
       .padding(horizontal = 18.dp, vertical = 10.dp),
-    verticalArrangement = Arrangement.SpaceBetween,
+    verticalArrangement = Arrangement.spacedBy(20.dp),
     horizontalAlignment = Alignment.CenterHorizontally
   ) {
+    Column(
+      modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+      verticalArrangement = Arrangement.spacedBy(20.dp),
+      horizontalAlignment = Alignment.CenterHorizontally
+    ) {
     // Top Immersive Header: Connected RideAware One & Battery/REC Capsule
     Row(
       modifier = Modifier
@@ -150,9 +187,9 @@ fun ActiveRideScreen(
     ) {
       Column {
         Text(
-          text = if (helmetStatus.isConnected) "CONNECTED" else "OFFLINE",
+          text = if (helmetStatus.isConnected) "RIDE" else "OFFLINE",
           color = TealPrimary.copy(alpha = 0.7f),
-          fontSize = 10.sp,
+          fontSize = 12.sp,
           fontWeight = FontWeight.Bold,
           letterSpacing = 2.sp
         )
@@ -204,9 +241,9 @@ fun ActiveRideScreen(
           horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
           Text(
-            text = "REC",
-            color = Color.White.copy(alpha = if (recAlpha > 0.5f) 0.8f else 0.4f),
-            fontSize = 10.sp,
+            text = "GENI",
+            color = TextSecondary,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Bold
           )
           Box(
@@ -222,7 +259,7 @@ fun ActiveRideScreen(
     Row(
       modifier = Modifier
         .fillMaxWidth()
-        .clickable { onOpenLiveCamera() }
+        .clickable(role = Role.Button) { onOpenLiveCamera() }
         .testTag("active_ride_live_cameras"),
       horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -268,12 +305,12 @@ fun ActiveRideScreen(
           horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
           Box(modifier = Modifier.size(5.dp).background(DangerRed.copy(alpha = recAlpha), CircleShape))
-          Text("FRONT", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+          Text("FRONT", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
         Text(
           text = "1080p 60fps",
-          color = Color.White.copy(alpha = 0.5f),
-          fontSize = 9.sp,
+          color = TextSecondary,
+          fontSize = 12.sp,
           modifier = Modifier.align(Alignment.BottomStart).padding(8.dp)
         )
       }
@@ -314,12 +351,12 @@ fun ActiveRideScreen(
           horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
           Box(modifier = Modifier.size(5.dp).background(DangerRed.copy(alpha = recAlpha), CircleShape))
-          Text("REAR", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+          Text("REAR", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
         Text(
-          text = "AI Radar Active",
+          text = "Rear camera preview",
           color = TealAccent.copy(alpha = 0.7f),
-          fontSize = 9.sp,
+          fontSize = 12.sp,
           modifier = Modifier.align(Alignment.BottomStart).padding(8.dp)
         )
       }
@@ -350,7 +387,7 @@ fun ActiveRideScreen(
         verticalArrangement = Arrangement.Center
       ) {
         Text(
-          text = "$currentSpeed",
+          text = "${if (speedUnitKmH) currentSpeed else (currentSpeed / 1.609344).toInt()}",
           color = Color.White,
           fontSize = 112.sp,
           fontWeight = FontWeight.Thin,
@@ -358,11 +395,11 @@ fun ActiveRideScreen(
           letterSpacing = (-3).sp
         )
         Text(
-          text = "KM/H",
+          text = if (speedUnitKmH) "km/h · simulated" else "mph · simulated",
           color = TealPrimary,
           fontSize = 13.sp,
           fontWeight = FontWeight.Bold,
-          letterSpacing = 4.sp,
+          letterSpacing = 0.sp,
           modifier = Modifier.padding(top = 0.dp)
         )
 
@@ -376,8 +413,8 @@ fun ActiveRideScreen(
           Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
               text = "DURATION",
-              color = Color.White.copy(alpha = 0.4f),
-              fontSize = 10.sp,
+              color = TextSecondary,
+              fontSize = 12.sp,
               fontWeight = FontWeight.Bold,
               letterSpacing = 1.5.sp
             )
@@ -393,14 +430,14 @@ fun ActiveRideScreen(
           Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
               text = "DISTANCE",
-              color = Color.White.copy(alpha = 0.4f),
-              fontSize = 10.sp,
+              color = TextSecondary,
+              fontSize = 12.sp,
               fontWeight = FontWeight.Bold,
               letterSpacing = 1.5.sp
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-              text = String.format("%.1f km", distanceKm),
+              text = if (speedUnitKmH) String.format("%.1f km", distanceKm) else String.format("%.1f mi", distanceKm / 1.609344),
               color = Color.White,
               fontSize = 20.sp,
               fontWeight = FontWeight.Medium
@@ -417,7 +454,7 @@ fun ActiveRideScreen(
           .fillMaxWidth()
           .clip(RoundedCornerShape(18.dp))
           .background(WarningOrange)
-          .clickable { onTriggerHazardAlert() }
+          .clickable(role = Role.Button) { onTriggerHazardAlert() }
           .padding(horizontal = 16.dp, vertical = 14.dp)
       ) {
         Row(
@@ -431,20 +468,20 @@ fun ActiveRideScreen(
               .background(Color.White.copy(alpha = 0.25f)),
             contentAlignment = Alignment.Center
           ) {
-            Text("!", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            Text("!", color = DarkCanvas, fontSize = 20.sp, fontWeight = FontWeight.Black)
           }
           Column(modifier = Modifier.weight(1f)) {
             Text(
               text = "BLIND SPOT WARNING",
-              color = Color.White,
+              color = DarkCanvas,
               fontSize = 13.sp,
               fontWeight = FontWeight.Bold,
               letterSpacing = 0.5.sp
             )
             Text(
               text = activeAlert.description.ifEmpty { "Vehicle approaching from rear right." },
-              color = Color.White.copy(alpha = 0.9f),
-              fontSize = 11.sp,
+              color = DarkCanvas.copy(alpha = 0.9f),
+              fontSize = 12.sp,
               fontWeight = FontWeight.Medium
             )
           }
@@ -457,7 +494,7 @@ fun ActiveRideScreen(
           .clip(RoundedCornerShape(18.dp))
           .background(Color.White.copy(alpha = 0.04f))
           .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(18.dp))
-          .clickable { onTriggerHazardAlert() }
+          .clickable(role = Role.Button) { onTriggerHazardAlert() }
           .padding(horizontal = 16.dp, vertical = 12.dp)
       ) {
         Row(
@@ -475,16 +512,16 @@ fun ActiveRideScreen(
           }
           Column(modifier = Modifier.weight(1f)) {
             Text(
-              text = "360° AI RADAR GUARDING",
+              text = "Preview a hazard alert",
               color = Color.White,
               fontSize = 12.sp,
               fontWeight = FontWeight.Bold,
               letterSpacing = 0.5.sp
             )
             Text(
-              text = "All blind spots clear • Audio alerts active",
-              color = Color.White.copy(alpha = 0.5f),
-              fontSize = 10.sp
+              text = "Tap to see a sample warning · parked use only",
+              color = TextSecondary,
+              fontSize = 12.sp
             )
           }
         }
@@ -501,31 +538,33 @@ fun ActiveRideScreen(
       horizontalArrangement = Arrangement.SpaceBetween,
       verticalAlignment = Alignment.CenterVertically
     ) {
-      Text("Prototype Triggers:", color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp, fontWeight = FontWeight.Medium)
+      Text("Alert controls:", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
       Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(
           modifier = Modifier
             .background(WarningOrange.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
             .border(1.dp, WarningOrange, RoundedCornerShape(8.dp))
-            .clickable { onTriggerHazardAlert() }
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .clickable(role = Role.Button) { onTriggerHazardAlert() }
+            .heightIn(min = 48.dp).padding(horizontal = 8.dp, vertical = 14.dp)
             .testTag("demo_trigger_hazard")
         ) {
-          Text("Hazard Alert", color = WarningOrange, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+          Text("Hazard alert", color = WarningOrange, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
 
         Box(
           modifier = Modifier
             .background(DangerRed.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
             .border(1.dp, DangerRed, RoundedCornerShape(8.dp))
-            .clickable { onTriggerCrashSos() }
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .clickable(role = Role.Button) { onTriggerCrashSos() }
+            .heightIn(min = 48.dp).padding(horizontal = 8.dp, vertical = 14.dp)
             .testTag("demo_trigger_sos")
         ) {
-          Text("Crash SOS", color = DangerRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+          Text("SOS", color = DangerRed, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
       }
     }
+
+    } // Scroll the preview while keeping the ride controls visible.
 
     // 3-Column Immersive Action Controls: Save Moment, Giant Genie Orb, End Ride
     Row(
@@ -539,26 +578,26 @@ fun ActiveRideScreen(
       Column(
         modifier = Modifier
           .weight(1f)
-          .height(72.dp)
+          .heightIn(min = 88.dp)
           .clip(RoundedCornerShape(18.dp))
           .background(Color.White.copy(alpha = 0.05f))
           .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(18.dp))
-          .clickable { onSaveMoment() }
+          .clickable(role = Role.Button) { onSaveMoment() }
           .testTag("active_ride_save_moment_button"),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
       ) {
         Text("Save", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-        Text("MOMENT", color = Color.White.copy(alpha = 0.4f), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        Text("MOMENT", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
       }
 
       // 2: Genie Glowing Center Orb Button
       Box(
         modifier = Modifier
-          .size(72.dp)
+          .size(88.dp)
           .clip(CircleShape)
           .background(TealPrimary)
-          .clickable { onOpenGenie() }
+          .clickable(role = Role.Button) { onOpenGenie() }
           .testTag("active_ride_genie"),
         contentAlignment = Alignment.Center
       ) {
@@ -567,7 +606,7 @@ fun ActiveRideScreen(
             .fillMaxSize()
             .background(
               Brush.radialGradient(
-                colors = listOf(Color.White.copy(alpha = 0.5f), Color.Transparent)
+                colors = listOf(TextSecondary, Color.Transparent)
               )
             )
         )
@@ -577,9 +616,9 @@ fun ActiveRideScreen(
         ) {
           Icon(Icons.Filled.Mic, contentDescription = "Genie", tint = Color(0xFF020408), modifier = Modifier.size(26.dp))
           Text(
-            text = "GENIE",
+            text = "GENI",
             color = Color(0xFF020408),
-            fontSize = 8.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = 1.sp
           )
@@ -590,17 +629,17 @@ fun ActiveRideScreen(
       Column(
         modifier = Modifier
           .weight(1f)
-          .height(72.dp)
+          .heightIn(min = 88.dp)
           .clip(RoundedCornerShape(18.dp))
           .background(DangerRed.copy(alpha = 0.12f))
           .border(1.dp, DangerRed.copy(alpha = 0.3f), RoundedCornerShape(18.dp))
-          .clickable { onEndRide() }
+          .clickable(role = Role.Button) { onEndRide() }
           .testTag("active_ride_end_ride_button"),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
       ) {
         Text("End", color = DangerRed, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-        Text("RIDE", color = DangerRed.copy(alpha = 0.7f), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        Text("RIDE", color = DangerRed, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
       }
     }
   }

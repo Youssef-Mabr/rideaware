@@ -116,7 +116,7 @@ fun RideSummaryScreen(
           Row(verticalAlignment = Alignment.CenterVertically) {
             CircularProgressIndicator(color = TealPrimary, strokeWidth = 2.5.dp, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(12.dp))
-            Text("Encrypting ride logs & syncing protected vault clips...", color = TealAccent, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Text("Loading sample summary...", color = TealAccent, fontSize = 12.sp, fontWeight = FontWeight.Medium)
           }
         }
       } else {
@@ -131,7 +131,7 @@ fun RideSummaryScreen(
           Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(12.dp))
-            Text("Ride safely saved to offline helmet vault & log history.", color = SuccessGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text("Sample summary · no ride was recorded or saved.", color = SuccessGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
           }
         }
       }
@@ -148,7 +148,7 @@ fun RideSummaryScreen(
       ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
           Text(
-            text = "SAFETY SCORE",
+            text = "EXAMPLE SCORE",
             color = TextSecondary,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
@@ -174,7 +174,7 @@ fun RideSummaryScreen(
               Text(
                 text = "/ 100",
                 color = TealAccent,
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
               )
             }
@@ -183,7 +183,7 @@ fun RideSummaryScreen(
           Spacer(modifier = Modifier.height(12.dp))
 
           Text(
-            text = "Smooth throttle control, zero panic stops.",
+            text = "Illustrative score, not a safety assessment.",
             color = TextSecondary,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium
@@ -262,7 +262,7 @@ fun RideSummaryScreen(
       verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
       GloveButton(
-        text = "View Recorded Clips (${rideSummary.safetyEventCount})",
+        text = "View sample clips",
         onClick = onViewClips,
         icon = Icons.Filled.Videocam,
         testTag = "summary_view_clips_button"

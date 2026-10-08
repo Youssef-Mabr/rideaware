@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -64,19 +65,7 @@ fun RideDetailScreen(
   onBack: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  val defaultClip = ride.protectedClips.firstOrNull() ?: ProtectedClip(
-    id = "clip_fallback",
-    title = "Protected Dual Angle Moment",
-    timestamp = "10:14 AM",
-    durationSeconds = 30,
-    hazardTag = "Fast closing vehicle from behind",
-    riskLevel = "HIGH",
-    cameraSource = CameraSource.DUAL_SPLIT,
-    frontThumbnail = "thumb_front_1",
-    rearThumbnail = "thumb_rear_1",
-    speedAtEventKmH = 64,
-    coordinates = "25.2048° N, 55.2708° E"
-  )
+  val defaultClip = ride.protectedClips.firstOrNull()
 
   Column(
     modifier = modifier
@@ -105,15 +94,15 @@ fun RideDetailScreen(
       ) {
         MetricCard(
           title = "Safety Score",
-          value = "${ride.safetyScore}",
-          unit = "/100",
+          value = if (ride.hasSafetyScore) "${ride.safetyScore}" else "—",
+          unit = if (ride.hasSafetyScore) "/100" else "Not available",
           accentColor = TealPrimary,
           modifier = Modifier.weight(1f)
         )
         MetricCard(
           title = "Duration",
-          value = "${ride.durationMinutes}",
-          unit = "mins",
+          value = ride.durationLabel,
+          unit = "elapsed",
           accentColor = CyanAccent,
           modifier = Modifier.weight(1f)
         )
@@ -136,64 +125,12 @@ fun RideDetailScreen(
           .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
       ) {
-        // Marker 1: Fast closing vehicle from behind (10:14)
-        Row(verticalAlignment = Alignment.Top) {
-          Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-              modifier = Modifier
-                .size(24.dp)
-                .background(WarningOrange.copy(alpha = 0.2f), CircleShape)
-                .border(1.5.dp, WarningOrange, CircleShape),
-              contentAlignment = Alignment.Center
-            ) {
-              Box(modifier = Modifier.size(8.dp).background(WarningOrange, CircleShape))
-            }
-            Box(modifier = Modifier.size(2.dp, 36.dp).background(DarkSurfaceBorder))
-          }
-
-          Spacer(modifier = Modifier.width(12.dp))
-
-          Column(modifier = Modifier.weight(1f)) {
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.SpaceBetween,
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              Text("Fast closing vehicle from behind", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-              Text("10:14 AM", color = WarningOrange, fontSize = 12.sp, fontWeight = FontWeight.Black)
-            }
-            Text("Rear Radar detected 28 km/h delta approach • 30s Dual Clip Locked", color = TextSecondary, fontSize = 11.sp)
-          }
-        }
-
-        // Marker 2: Pedestrian warning near crosswalk (10:28)
-        Row(verticalAlignment = Alignment.Top) {
-          Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-              modifier = Modifier
-                .size(24.dp)
-                .background(TealPrimary.copy(alpha = 0.2f), CircleShape)
-                .border(1.5.dp, TealPrimary, CircleShape),
-              contentAlignment = Alignment.Center
-            ) {
-              Box(modifier = Modifier.size(8.dp).background(TealPrimary, CircleShape))
-            }
-          }
-
-          Spacer(modifier = Modifier.width(12.dp))
-
-          Column(modifier = Modifier.weight(1f)) {
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.SpaceBetween,
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              Text("Pedestrian warning near crosswalk", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-              Text("10:28 AM", color = TealAccent, fontSize = 12.sp, fontWeight = FontWeight.Black)
-            }
-            Text("Front AI camera flagged jaywalker stepping off curb • Alert Chime Sounded", color = TextSecondary, fontSize = 11.sp)
-          }
-        }
+        Text(
+          text = if (ride.safetyEventCount == 0) "No safety events recorded"
+            else "${ride.safetyEventCount} safety events recorded",
+          color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold
+        )
+        Text("Detailed event markers are not available for this ride.", color = TextSecondary, fontSize = 12.sp)
       }
 
       // Clip Preview Cards Section
@@ -204,11 +141,15 @@ fun RideDetailScreen(
         fontWeight = FontWeight.Bold
       )
 
+      if (ride.protectedClips.isEmpty()) {
+        Text("No video clips saved for this ride.", color = TextSecondary, fontSize = 14.sp)
+      }
+
       ride.protectedClips.forEach { clip ->
         Card(
           modifier = Modifier
             .fillMaxWidth()
-            .clickable { onWatchDualPlayback(clip) }
+            .clickable(role = Role.Button) { onWatchDualPlayback(clip) }
             .testTag("clip_preview_card_${clip.id}"),
           shape = RoundedCornerShape(18.dp),
           colors = CardDefaults.cardColors(containerColor = DarkSurface),
@@ -300,7 +241,8 @@ fun RideDetailScreen(
     ) {
       GloveButton(
         text = "Watch Synchronized Dual Playback",
-        onClick = { onWatchDualPlayback(defaultClip) },
+        onClick = { defaultClip?.let(onWatchDualPlayback) },
+        enabled = defaultClip != null,
         icon = Icons.Filled.PlayCircleFilled,
         testTag = "watch_dual_playback_button"
       )

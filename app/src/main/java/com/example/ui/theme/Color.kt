@@ -6,7 +6,7 @@ import androidx.compose.ui.graphics.Color
 val DarkCanvas = Color(0xFF020408)
 val DarkSurface = Color(0xFF0A0D14)
 val DarkSurfaceElevated = Color(0xFF0E1420)
-val DarkSurfaceBorder = Color(0x1AFFFFFF)
+val DarkSurfaceBorder = Color(0xFF5C6C82)
 val ImmersiveSlate = Color(0xFF0F172A)
 val WhiteGlass = Color(0x0DFFFFFF)
 val WhiteBorder = Color(0x1AFFFFFF)
@@ -22,15 +22,17 @@ val CyanAccent = Color(0xFF3DEFE7)
 val BlueAccent = Color(0xFF38BDF8)
 
 // Safety Warning & Hazard Colors - Safety Orange #FF5C00 & Red #EF4444
-val WarningOrange = Color(0xFFFF5C00)
+val WarningOrange = Color(0xFFFFB454)
 val DangerRed = Color(0xFFEF4444)
 val DangerGlow = Color(0x4DEF4444)
-val SuccessGreen = Color(0xFF3DEFE7)
+val SuccessGreen = Color(0xFF57D99B)
+// Dark red is reserved for filled buttons with white text.
+val DangerContainer = Color(0xFFB42332)
 
 // Neutral Text & Icons
 val TextPrimary = Color(0xFFF8FAFC)
 val TextSecondary = Color(0xFF94A3B8)
-val TextMuted = Color(0xFF64748B)
+val TextMuted = Color(0xFF94A3B8)
 val TextDisabled = Color(0xFF475569)
 
 // Overlay and Glass

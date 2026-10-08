@@ -246,7 +246,7 @@ fun WelcomeScreen(
       Spacer(modifier = Modifier.height(10.dp))
 
       Text(
-        text = "Inspired by Ali Baba's legendary guardian. Geni guards every road ahead and behind you.",
+        text = "Your smart helmet companion for rides, camera views and voice assistance.",
         color = TextSecondary,
         fontSize = 15.sp,
         textAlign = TextAlign.Center,
@@ -270,7 +270,7 @@ fun WelcomeScreen(
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-          text = "No cable between your phone and helmet",
+          text = "Your ride. Your safety. Your Geni.",
           color = TextSecondary,
           fontSize = 12.sp,
           fontWeight = FontWeight.Medium
@@ -286,7 +286,7 @@ fun WelcomeScreen(
       horizontalAlignment = Alignment.CenterHorizontally
     ) {
       GloveButton(
-        text = "Get Started",
+        text = "Explore setup",
         onClick = onGetStarted,
         icon = Icons.Filled.ArrowForward,
         testTag = "welcome_get_started_button"
@@ -299,7 +299,7 @@ fun WelcomeScreen(
         modifier = Modifier.testTag("welcome_already_paired_button")
       ) {
         Text(
-          text = "I already paired a helmet",
+          text = "Skip setup",
           color = TextSecondary,
           fontSize = 14.sp,
           fontWeight = FontWeight.SemiBold

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -47,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -87,6 +89,7 @@ fun HomeScreen(
   onOpenGenie: () -> Unit,
   modifier: Modifier = Modifier
 ) {
+  val systemReady = helmetStatus.isConnected && helmetStatus.frontCameraReady && helmetStatus.rearCameraReady && helmetStatus.audioReady && helmetStatus.batteryPercent > 20 && helmetStatus.storageFreeGb > 5 && currentError == ErrorDemoType.NONE
   var showDemoErrorSheet by remember { mutableStateOf(false) }
 
   Column(
@@ -120,7 +123,7 @@ fun HomeScreen(
 
       Row(verticalAlignment = Alignment.CenterVertically) {
         StatusPill(
-          label = if (helmetStatus.isConnected) "Geni One" else "Disconnected",
+          label = if (helmetStatus.isConnected) "Helmet" else "Disconnected",
           isActive = helmetStatus.isConnected,
           activeColor = TealPrimary,
           inactiveColor = DangerRed
@@ -131,11 +134,11 @@ fun HomeScreen(
         // State Simulator Launcher Icon Button
         Box(
           modifier = Modifier
-            .size(36.dp)
+            .size(48.dp)
             .clip(CircleShape)
             .background(DarkSurfaceElevated)
             .border(1.dp, DarkSurfaceBorder, CircleShape)
-            .clickable { showDemoErrorSheet = true }
+            .clickable(role = Role.Button) { showDemoErrorSheet = true }
             .testTag("state_simulator_launcher"),
           contentAlignment = Alignment.Center
         ) {
@@ -199,15 +202,15 @@ fun HomeScreen(
               )
             }
             Spacer(modifier = Modifier.width(14.dp))
-            Column {
+            Column(Modifier.weight(1f)) {
               Text(
-                text = "All systems ready",
+                text = if (systemReady) "Ready to ride" else "Needs attention",
                 color = Color.White,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold
               )
               Text(
-                text = "360° Vision • Voice Armed • Vault Ready",
+                text = if (systemReady) "Sample readings · no helmet connected" else "Review the status below before continuing",
                 color = TealAccent,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium
@@ -220,9 +223,10 @@ fun HomeScreen(
       // Large Glove-Friendly Primary "Start Ride" Action
       Button(
         onClick = onStartRide,
+        enabled = systemReady,
         modifier = Modifier
           .fillMaxWidth()
-          .height(68.dp)
+          .heightIn(min = 80.dp)
           .testTag("home_start_ride_button"),
         shape = RoundedCornerShape(20.dp),
         colors = ButtonDefaults.buttonColors(
@@ -237,7 +241,7 @@ fun HomeScreen(
         ) {
           Box(
             modifier = Modifier
-              .size(36.dp)
+              .size(48.dp)
               .background(Color(0xFF020408).copy(alpha = 0.15f), CircleShape),
             contentAlignment = Alignment.Center
           ) {
@@ -251,14 +255,14 @@ fun HomeScreen(
           Spacer(modifier = Modifier.width(12.dp))
           Column {
             Text(
-              text = "Start Ride",
+              text = "Start ride",
               fontSize = 19.sp,
               fontWeight = FontWeight.Black,
               letterSpacing = 0.5.sp
             )
             Text(
-              text = "Pre-ride check & automatic dual recording",
-              fontSize = 11.sp,
+              text = "Review checks, then explore a sample ride",
+              fontSize = 12.sp,
               color = Color(0xFF020408).copy(alpha = 0.8f),
               fontWeight = FontWeight.SemiBold
             )
@@ -278,7 +282,7 @@ fun HomeScreen(
             .clip(RoundedCornerShape(18.dp))
             .background(DarkSurface)
             .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(18.dp))
-            .clickable { onOpenLiveCameras() }
+            .clickable(role = Role.Button) { onOpenLiveCameras() }
             .padding(16.dp)
             .testTag("home_live_cameras_button")
         ) {
@@ -305,18 +309,18 @@ fun HomeScreen(
               Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.size(6.dp).background(DangerRed, CircleShape))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("LIVE", color = DangerRed, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                Text("GENI", color = TealAccent, fontSize = 12.sp, fontWeight = FontWeight.Black)
               }
             }
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-              text = "Live Cameras",
+              text = "Camera preview",
               color = TextPrimary,
               fontSize = 15.sp,
               fontWeight = FontWeight.Bold
             )
             Text(
-              text = "Front & rear feeds",
+              text = "Simulated front & rear",
               color = TextSecondary,
               fontSize = 12.sp
             )
@@ -330,7 +334,7 @@ fun HomeScreen(
             .clip(RoundedCornerShape(18.dp))
             .background(DarkSurface)
             .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(18.dp))
-            .clickable { onOpenGenie() }
+            .clickable(role = Role.Button) { onOpenGenie() }
             .padding(16.dp)
             .testTag("home_genie_button")
         ) {
@@ -353,7 +357,7 @@ fun HomeScreen(
                   modifier = Modifier.size(22.dp)
                 )
               }
-              Text("ARMED", color = CyanAccent, fontSize = 10.sp, fontWeight = FontWeight.Black)
+              Text("GENI", color = CyanAccent, fontSize = 12.sp, fontWeight = FontWeight.Black)
             }
             Spacer(modifier = Modifier.height(10.dp))
             Text(
@@ -363,7 +367,7 @@ fun HomeScreen(
               fontWeight = FontWeight.Bold
             )
             Text(
-              text = "Hands-free assistant",
+              text = "Try sample responses",
               color = TextSecondary,
               fontSize = 12.sp
             )
@@ -373,7 +377,7 @@ fun HomeScreen(
 
       // Helmet Telemetry Grid (Battery, Storage, Cameras, Audio, GPS)
       Text(
-        text = "Helmet Diagnostics",
+        text = "Sample helmet status",
         color = TextPrimary,
         fontSize = 17.sp,
         fontWeight = FontWeight.Bold,
@@ -387,7 +391,7 @@ fun HomeScreen(
         MetricCard(
           title = "Battery",
           value = "${helmetStatus.batteryPercent}%",
-          unit = "approx 5.5h",
+          unit = "sample reading",
           icon = Icons.Filled.BatteryChargingFull,
           accentColor = SuccessGreen,
           modifier = Modifier.weight(1f)
@@ -421,9 +425,9 @@ fun HomeScreen(
           Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Videocam, contentDescription = null, tint = TealPrimary, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(10.dp))
-            Text("Front Camera (1080p60 HDR)", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            Text("Front camera", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
           }
-          StatusPill(label = "Ready", isActive = helmetStatus.frontCameraReady)
+          StatusPill(label = if (helmetStatus.frontCameraReady) "Ready" else "Unavailable", isActive = helmetStatus.frontCameraReady)
         }
 
         // Rear Camera
@@ -435,9 +439,9 @@ fun HomeScreen(
           Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Videocam, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(10.dp))
-            Text("Rear Camera (Blind Zone Radar)", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            Text("Rear camera", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
           }
-          StatusPill(label = "Ready", isActive = helmetStatus.rearCameraReady)
+          StatusPill(label = if (helmetStatus.rearCameraReady) "Ready" else "Unavailable", isActive = helmetStatus.rearCameraReady)
         }
 
         // Intercom Audio
@@ -449,9 +453,9 @@ fun HomeScreen(
           Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Headset, contentDescription = null, tint = TealPrimary, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(10.dp))
-            Text("Intercom Audio & Beam Mic", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            Text("Audio & microphone", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
           }
-          StatusPill(label = "Ready", isActive = helmetStatus.audioReady)
+          StatusPill(label = if (helmetStatus.audioReady) "Ready" else "Unavailable", isActive = helmetStatus.audioReady)
         }
 
         // GPS Telemetry
@@ -478,9 +482,9 @@ fun HomeScreen(
         contentAlignment = Alignment.Center
       ) {
         Text(
-          text = "Phone stays in your pocket. Helmet voice and physical controls operate the ride.",
+          text = "Set up your ride while parked. Stay aware of your surroundings.",
           color = TextSecondary,
-          fontSize = 11.sp,
+          fontSize = 12.sp,
           fontWeight = FontWeight.Medium
         )
       }

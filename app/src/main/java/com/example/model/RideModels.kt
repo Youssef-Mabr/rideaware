@@ -70,6 +70,9 @@ data class ProtectedClip(
   val frontThumbnail: String = "thumb_front",
   val rearThumbnail: String = "thumb_rear",
   val thumbnailColor: Long = 0xFF162033
+  ,val filePath: String? = null
+  ,val rideId: String? = null
+  ,val createdAtMillis: Long? = null
 )
 
 data class RideSummary(
@@ -94,8 +97,15 @@ data class RideSummary(
   val isSafeRide: Boolean = false,
   val alerts: List<SafetyAlert> = emptyList(),
   val clips: List<ProtectedClip> = emptyList(),
-  val protectedClips: List<ProtectedClip> = emptyList()
-)
+  val protectedClips: List<ProtectedClip> = emptyList(),
+  val isFavorite: Boolean = false,
+  val hasSafetyScore: Boolean = true,
+  val durationSeconds: Int = durationMinutes * 60
+) {
+  val durationLabel: String
+    get() = if (durationSeconds < 60) "${durationSeconds}s"
+      else "${durationSeconds / 60}m ${durationSeconds % 60}s"
+}
 
 data class HelmetStatus(
   val name: String = "Geni One",
@@ -120,7 +130,8 @@ data class EmergencyContact(
   val relationship: String = "Family",
   val phoneNumber: String = "+1 (555) 019-2849",
   val phone: String = "+1 (555) 019-2849",
-  val autoShareGps: Boolean = true
+  val autoShareGps: Boolean = true,
+  val id: String = ""
 )
 
 data class GenieMessage(
@@ -153,6 +164,7 @@ enum class AppDestination {
   VIDEO_PLAYBACK,
   GENIE,
   HELMET,
+  HELMET_PAIRING,
   SETTINGS
 }
 

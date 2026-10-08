@@ -40,6 +40,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -49,6 +51,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.GloveButton
 import com.example.ui.components.RideAwareTopBar
+import com.example.ui.rememberNotificationPermission
+import com.example.ui.rememberLocationPermission
 import com.example.ui.theme.CyanAccent
 import com.example.ui.theme.DarkCanvas
 import com.example.ui.theme.DarkSurface
@@ -76,6 +80,8 @@ fun PermissionScreen(
   onBack: () -> Unit,
   modifier: Modifier = Modifier
 ) {
+  val notifications = rememberNotificationPermission()
+  val location = rememberLocationPermission()
   val permissions = remember {
     listOf(
       PermissionItem(
@@ -99,13 +105,13 @@ fun PermissionScreen(
       PermissionItem(
         id = "notifications",
         title = "Notifications",
-        reason = "Pushes high-priority collision radar alerts and system readiness updates.",
+        reason = "Receive RideAware alerts and updates. Turn on to allow notifications; manage or turn them off in Android settings.",
         icon = Icons.Filled.NotificationsActive
       ),
       PermissionItem(
         id = "location",
-        title = "Emergency Coordinates Only",
-        reason = "Transmits your exact GPS coordinates only during verified crash or SOS events. Never used for tracking.",
+        title = "Location",
+        reason = "Saves your phone's location with an SOS event after the countdown. SOS still works without location permission.",
         icon = Icons.Filled.MyLocation
       )
     )
@@ -114,7 +120,7 @@ fun PermissionScreen(
   // Simulated permission states
   val permissionStates = remember {
     mutableStateMapOf<String, Boolean>().apply {
-      permissions.forEach { put(it.id, true) }
+      permissions.forEach { put(it.id, false) }
     }
   }
 
@@ -128,8 +134,8 @@ fun PermissionScreen(
       .navigationBarsPadding()
   ) {
     RideAwareTopBar(
-      title = "System Access",
-      subtitle = "Required for wireless helmet operation",
+      title = "Permissions",
+      subtitle = "Step 2 of 4 · choose your access preferences",
       onBack = onBack
     )
 
@@ -147,7 +153,7 @@ fun PermissionScreen(
         fontWeight = FontWeight.Bold
       )
       Text(
-        text = "Geni keeps your phone in your pocket. The following permissions allow seamless wireless operation with your helmet.",
+        text = "Notifications and location use your Android permission settings. Other access preferences are previews for connected features.",
         color = TextSecondary,
         fontSize = 13.sp,
         lineHeight = 19.sp
@@ -156,7 +162,11 @@ fun PermissionScreen(
       Spacer(modifier = Modifier.height(4.dp))
 
       permissions.forEach { item ->
-        val isGranted = permissionStates[item.id] == true
+        val isGranted = when (item.id) {
+          "notifications" -> notifications.enabled
+          "location" -> location.enabled
+          else -> permissionStates[item.id] == true
+        }
 
         Box(
           modifier = Modifier
@@ -201,6 +211,7 @@ fun PermissionScreen(
               ) {
                 Text(
                   text = item.title,
+                  modifier = Modifier.weight(1f),
                   color = TextPrimary,
                   fontSize = 15.sp,
                   fontWeight = FontWeight.Bold
@@ -208,14 +219,18 @@ fun PermissionScreen(
 
                 Switch(
                   checked = isGranted,
-                  onCheckedChange = { permissionStates[item.id] = it },
+                  onCheckedChange = {
+                    if (item.id == "notifications") notifications.onToggle(it)
+                    else if (item.id == "location") location.onToggle(it)
+                    else permissionStates[item.id] = it
+                  },
                   colors = SwitchDefaults.colors(
                     checkedThumbColor = Color(0xFF041912),
                     checkedTrackColor = TealPrimary,
                     uncheckedThumbColor = TextMuted,
                     uncheckedTrackColor = DarkSurfaceElevated
                   ),
-                  modifier = Modifier.testTag("switch_${item.id}")
+                  modifier = Modifier.testTag("switch_${item.id}").semantics { contentDescription = "${item.title} permission" }
                 )
               }
 
@@ -253,10 +268,8 @@ fun PermissionScreen(
       }
 
       GloveButton(
-        text = "Allow Required Permissions",
+        text = "Continue setup",
         onClick = {
-          // Simulate full approval
-          permissions.forEach { permissionStates[it.id] = true }
           onPermissionsAllowed()
         },
         icon = Icons.Filled.Check,
@@ -270,7 +283,7 @@ fun PermissionScreen(
         modifier = Modifier.testTag("continue_limited_button")
       ) {
         Text(
-          text = "Continue with limited features",
+          text = "Skip for now",
           color = TextSecondary,
           fontSize = 13.sp,
           fontWeight = FontWeight.Medium

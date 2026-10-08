@@ -42,16 +42,22 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import android.net.Uri
+import android.widget.VideoView
+import java.io.File
 import com.example.model.CameraSource
 import com.example.model.ProtectedClip
 import com.example.ui.components.GloveButton
@@ -78,8 +84,8 @@ fun VideoPlaybackScreen(
   onBack: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  var isPlaying by remember { mutableStateOf(true) }
-  var currentPositionSeconds by remember { mutableFloatStateOf(10f) }
+  var isPlaying by rememberSaveable { mutableStateOf(false) }
+  var currentPositionSeconds by rememberSaveable { mutableFloatStateOf(10f) }
   val totalDuration = clip.durationSeconds.toFloat()
   var exportDialogMessage by remember { mutableStateOf<String?>(null) }
 
@@ -134,7 +140,16 @@ fun VideoPlaybackScreen(
             .fillMaxWidth()
             .height(140.dp)
         ) {
-          SimulatedRoadScene(
+          if (clip.filePath != null && File(clip.filePath).exists()) {
+            AndroidView(
+              factory = { context -> VideoView(context) },
+              update = { videoView ->
+                videoView.setVideoURI(Uri.fromFile(File(clip.filePath)))
+                videoView.setOnPreparedListener { player -> player.isLooping = true; videoView.start() }
+              },
+              modifier = Modifier.fillMaxSize()
+            )
+          } else SimulatedRoadScene(
             source = CameraSource.FRONT,
             showDetectionBoxes = true,
             modifier = Modifier.fillMaxSize()
@@ -158,7 +173,16 @@ fun VideoPlaybackScreen(
             .fillMaxWidth()
             .height(140.dp)
         ) {
-          SimulatedRoadScene(
+          if (clip.filePath != null && File(clip.filePath).exists()) {
+            AndroidView(
+              factory = { context -> VideoView(context) },
+              update = { videoView ->
+                videoView.setVideoURI(Uri.fromFile(File(clip.filePath)))
+                videoView.setOnPreparedListener { player -> player.isLooping = true; videoView.start() }
+              },
+              modifier = Modifier.fillMaxSize()
+            )
+          } else SimulatedRoadScene(
             source = CameraSource.REAR,
             showDetectionBoxes = true,
             modifier = Modifier.fillMaxSize()
@@ -270,7 +294,7 @@ fun VideoPlaybackScreen(
               .size(54.dp)
               .clip(CircleShape)
               .background(TealPrimary)
-              .clickable { isPlaying = !isPlaying }
+              .clickable(role = Role.Button) { isPlaying = !isPlaying }
               .testTag("playback_play_pause_button"),
             contentAlignment = Alignment.Center
           ) {
@@ -296,7 +320,7 @@ fun VideoPlaybackScreen(
 
       // Video Export Options Section
       Text(
-        text = "Export Incident Evidence",
+        text = "Export preview",
         color = TextPrimary,
         fontSize = 16.sp,
         fontWeight = FontWeight.Bold
@@ -308,7 +332,7 @@ fun VideoPlaybackScreen(
       ) {
         GloveOutlinedButton(
           text = "Front (1080p)",
-          onClick = { exportDialogMessage = "Front camera incident video exported to Gallery (vault_clip_front.mp4)." },
+          onClick = { exportDialogMessage = "This is an illustrated sample, not a recorded video. No front camera file was exported." },
           icon = Icons.Filled.FileDownload,
           modifier = Modifier.weight(1f),
           testTag = "export_front_button"
@@ -316,7 +340,7 @@ fun VideoPlaybackScreen(
 
         GloveOutlinedButton(
           text = "Rear Radar",
-          onClick = { exportDialogMessage = "Rear camera radar clip exported to Gallery (vault_clip_rear.mp4)." },
+          onClick = { exportDialogMessage = "This is an illustrated sample, not a recorded video. No rear camera file was exported." },
           icon = Icons.Filled.FileDownload,
           modifier = Modifier.weight(1f),
           testTag = "export_rear_button"
@@ -324,8 +348,8 @@ fun VideoPlaybackScreen(
       }
 
       GloveButton(
-        text = "Export Both Angles (Synchronized Dual)",
-        onClick = { exportDialogMessage = "Synchronized dual-angle package with GPS & speed telemetry exported." },
+        text = "Preview export · both cameras",
+        onClick = { exportDialogMessage = "Export is currently unavailable. No video files or location data were saved or shared." },
         icon = Icons.Filled.Share,
         testTag = "export_both_button"
       )
@@ -340,7 +364,7 @@ fun VideoPlaybackScreen(
       onDismissRequest = { exportDialogMessage = null },
       containerColor = DarkSurface,
       title = {
-        Text("Export Successful", color = TextPrimary, fontWeight = FontWeight.Bold)
+        Text("Export unavailable", color = TextPrimary, fontWeight = FontWeight.Bold)
       },
       text = {
         Text(exportDialogMessage ?: "", color = TextSecondary, fontSize = 13.sp)

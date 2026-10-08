@@ -46,6 +46,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -81,21 +82,22 @@ fun HelmetManagementScreen(
   onUnpairHelmet: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  var isUpdatingFirmware by remember { mutableStateOf(false) }
-  var updateProgress by remember { mutableFloatStateOf(0f) }
-  var showUnpairDialog by remember { mutableStateOf(false) }
+  var storageNotice by remember { mutableStateOf<String?>(null) }
+  var isUpdatingFirmware by rememberSaveable { mutableStateOf(false) }
+  var updateProgress by rememberSaveable { mutableFloatStateOf(0f) }
+  var showUnpairDialog by rememberSaveable { mutableStateOf(false) }
 
   // Toggles
-  var frontHdr by remember { mutableStateOf(true) }
-  var rearBlindSpotRadar by remember { mutableStateOf(true) }
-  var windNoiseSuppression by remember { mutableStateOf(true) }
+  var frontHdr by rememberSaveable { mutableStateOf(true) }
+  var rearBlindSpotRadar by rememberSaveable { mutableStateOf(true) }
+  var windNoiseSuppression by rememberSaveable { mutableStateOf(true) }
 
   LaunchedEffect(isUpdatingFirmware) {
     if (isUpdatingFirmware) {
       updateProgress = 0f
       while (updateProgress < 1f) {
         delay(300)
-        updateProgress += 0.15f
+        updateProgress = (updateProgress + 0.15f).coerceAtMost(1f)
       }
       isUpdatingFirmware = false
     }
@@ -108,8 +110,8 @@ fun HelmetManagementScreen(
       .statusBarsPadding()
   ) {
     RideAwareTopBar(
-      title = "Helmet Management",
-      subtitle = "Geni One • Connected"
+      title = "Helmet",
+      subtitle = "Sample controls · no real helmet connected"
     )
 
     Column(
@@ -146,7 +148,7 @@ fun HelmetManagementScreen(
             Spacer(modifier = Modifier.width(12.dp))
             Column {
               Text("Geni One", color = TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-              Text("Hardware Rev 3 • Serial #GENI-8820", color = TextSecondary, fontSize = 11.sp)
+              Text("Hardware Rev 3 • Serial #GENI-8820", color = TextSecondary, fontSize = 12.sp)
             }
           }
 
@@ -155,7 +157,7 @@ fun HelmetManagementScreen(
               .background(SuccessGreen.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
               .padding(horizontal = 10.dp, vertical = 5.dp)
           ) {
-            Text("CONNECTED", color = SuccessGreen, fontSize = 11.sp, fontWeight = FontWeight.Black)
+            Text("GENI", color = SuccessGreen, fontSize = 12.sp, fontWeight = FontWeight.Black)
           }
         }
       }
@@ -180,15 +182,15 @@ fun HelmetManagementScreen(
             Column {
               Text("Firmware Version v2.4.1", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
               Text(
-                text = if (isUpdatingFirmware) "Transmitting OTA binary via 5GHz Wi-Fi..." else "Latest build with low-latency radar",
+                text = if (isUpdatingFirmware) "Previewing update progress..." else "Example firmware · no update installed",
                 color = if (isUpdatingFirmware) TealAccent else TextSecondary,
-                fontSize = 11.sp
+                fontSize = 12.sp
               )
             }
 
             if (!isUpdatingFirmware) {
               GloveOutlinedButton(
-                text = "Check Update",
+                text = "Preview update",
                 onClick = { isUpdatingFirmware = true },
                 modifier = Modifier.width(130.dp),
                 testTag = "check_firmware_update"
@@ -206,9 +208,9 @@ fun HelmetManagementScreen(
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-              text = "Flash Progress: ${(updateProgress * 100).toInt()}%",
+              text = "Progress: ${(updateProgress * 100).toInt()}%",
               color = TealAccent,
-              fontSize = 11.sp,
+              fontSize = 12.sp,
               fontWeight = FontWeight.Bold
             )
           }
@@ -238,7 +240,7 @@ fun HelmetManagementScreen(
             Spacer(modifier = Modifier.width(10.dp))
             Column {
               Text("Front Camera 1080p HDR", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-              Text("Wide dynamic range for bright sunlight & tunnels", color = TextSecondary, fontSize = 11.sp)
+              Text("Wide dynamic range for bright sunlight & tunnels", color = TextSecondary, fontSize = 12.sp)
             }
           }
           Switch(
@@ -259,7 +261,7 @@ fun HelmetManagementScreen(
             Spacer(modifier = Modifier.width(10.dp))
             Column {
               Text("Rear Blind-Spot Radar Guard", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-              Text("Audible chimes when approaching speed > 15 km/h", color = TextSecondary, fontSize = 11.sp)
+              Text("Audible chimes when approaching speed > 15 km/h", color = TextSecondary, fontSize = 12.sp)
             }
           }
           Switch(
@@ -280,7 +282,7 @@ fun HelmetManagementScreen(
             Spacer(modifier = Modifier.width(10.dp))
             Column {
               Text("Dual-Mic Beamforming Noise Cut", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-              Text("Cancels high speed aerodynamic turbulence", color = TextSecondary, fontSize = 11.sp)
+              Text("Cancels high speed aerodynamic turbulence", color = TextSecondary, fontSize = 12.sp)
             }
           }
           Switch(
@@ -325,13 +327,13 @@ fun HelmetManagementScreen(
           ) {
             GloveOutlinedButton(
               text = "Format SD Card",
-              onClick = { /* simulated format */ },
+              onClick = { storageNotice = "Formatting is currently unavailable. No files were deleted." },
               modifier = Modifier.weight(1f),
               testTag = "format_sd_button"
             )
             GloveOutlinedButton(
               text = "Backup All Vault Clips",
-              onClick = { /* simulated backup */ },
+              onClick = { storageNotice = "Backup is currently unavailable. No clips were copied or uploaded." },
               modifier = Modifier.weight(1f),
               testTag = "backup_clips_button"
             )
@@ -341,7 +343,7 @@ fun HelmetManagementScreen(
 
       // Disconnect or Unpair Helmet Option
       GloveButton(
-        text = "Unpair Geni One Helmet",
+        text = "Reset helmet setup",
         onClick = { showUnpairDialog = true },
         icon = Icons.Filled.BluetoothDisabled,
         isDanger = true,
@@ -352,17 +354,26 @@ fun HelmetManagementScreen(
     }
   }
 
+  if (storageNotice != null) {
+    AlertDialog(
+      onDismissRequest = { storageNotice = null },
+      title = { Text("Feature unavailable") },
+      text = { Text(storageNotice ?: "") },
+      confirmButton = { TextButton(onClick = { storageNotice = null }) { Text("Close") } }
+    )
+  }
+
   // Unpair Confirmation Dialog
   if (showUnpairDialog) {
     AlertDialog(
       onDismissRequest = { showUnpairDialog = false },
       containerColor = DarkSurface,
       title = {
-        Text("Unpair Helmet?", color = TextPrimary, fontWeight = FontWeight.Bold)
+        Text("Reset setup?", color = TextPrimary, fontWeight = FontWeight.Bold)
       },
       text = {
         Text(
-          "Unpairing will disconnect Bluetooth telemetry and 5GHz video links until scanned again.",
+          "Return to the setup preview. Your saved contact and preferences will stay on this phone. No real helmet connection is affected.",
           color = TextSecondary,
           fontSize = 13.sp
         )

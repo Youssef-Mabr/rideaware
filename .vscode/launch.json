@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Android app (phone)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .vscode/run-android.ps1 -Target phone",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Run Android app (emulator)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .vscode/run-android.ps1 -Target emulator",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

@@ -45,6 +45,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -125,7 +126,7 @@ fun EmptyErrorStateView(
     ) {
       if (onDismiss != null) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-          IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+          IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)) {
             Icon(Icons.Filled.Close, contentDescription = "Dismiss", tint = TextMuted)
           }
         }
@@ -169,7 +170,7 @@ fun EmptyErrorStateView(
       Spacer(modifier = Modifier.height(18.dp))
 
       GloveButton(
-        text = errorType.actionLabel,
+        text = "Reset status",
         onClick = onActionClick,
         isDanger = isDanger,
         testTag = "error_action_button"
@@ -217,13 +218,13 @@ fun ErrorStatesDemoSheet(
       ) {
         Column {
           Text(
-            text = "Prototype States Simulator",
+            text = "Try a status scenario",
             color = TextPrimary,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold
           )
           Text(
-            text = "Validate 14 error & empty states specified in scope",
+            text = "Sample errors only · choose one to preview",
             color = TextSecondary,
             fontSize = 12.sp
           )
@@ -253,7 +254,7 @@ fun ErrorStatesDemoSheet(
                 if (isSelected) TealPrimary else DarkSurfaceBorder,
                 RoundedCornerShape(12.dp)
               )
-              .clickable {
+              .clickable(role = Role.Button) {
                 onSelectError(type)
                 onDismiss()
               }
