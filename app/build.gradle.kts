@@ -1,5 +1,4 @@
 import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
-import java.util.Properties
 
 plugins {
   alias(libs.plugins.android.application)
@@ -56,17 +55,6 @@ android {
   buildFeatures {
     compose = true
     buildConfig = true
-  }
-  val localProperties = Properties().apply {
-    val file = rootProject.file("local.properties")
-    if (file.exists()) file.inputStream().use(::load)
-  }
-  buildTypes.configureEach {
-    buildConfigField(
-      "String",
-      "GEMINI_API_KEY",
-      "\"${localProperties.getProperty("gemini.apiKey", "YOUR_GEMINI_API_KEY").replace("\"", "\\\"")}\""
-    )
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
   dependenciesInfo {

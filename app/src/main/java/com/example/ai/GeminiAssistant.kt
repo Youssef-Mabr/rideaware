@@ -23,14 +23,16 @@ class GeminiAssistantImpl(
     .readTimeout(30, TimeUnit.SECONDS)
     .writeTimeout(15, TimeUnit.SECONDS)
     .build(),
-  private val endpoint: String = "https://generativelanguage.googleapis.com/v1beta/interactions"
+  private val endpoint: String = "https://generativelanguage.googleapis.com/v1beta/interactions",
+  private val contextProvider: RideAwareContextProvider = RideAwareContextStore.provider
 ) : GeminiAssistant {
   override suspend fun ask(prompt: String): Result<String> = withContext(Dispatchers.IO) {
     if (prompt.isBlank()) return@withContext Result.failure(IllegalArgumentException("Enter a message first."))
     if (apiKey.isBlank() || apiKey == "YOUR_GEMINI_API_KEY") {
       return@withContext Result.failure(IllegalStateException("Gemini API key is not configured."))
     }
-    val body = "{\"model\":\"${MODEL.jsonEscape()}\",\"input\":\"${prompt.trim().jsonEscape()}\"}"
+    val contextualInput = buildContextualInput(prompt)
+    val body = buildRequestBody(contextualInput)
       .toRequestBody(JSON_MEDIA_TYPE)
     val request = Request.Builder()
       .url("$endpoint?key=$apiKey")
@@ -53,7 +55,19 @@ class GeminiAssistantImpl(
     }
   }
 
-  companion object { const val MODEL = "gemini-3.5-flash-lite"; private val JSON_MEDIA_TYPE = "application/json".toMediaType() }
+  internal fun buildContextualInput(
+    prompt: String,
+    nowMillis: Long = System.currentTimeMillis()
+  ): String = contextProvider.buildContextualUserPrompt(prompt.trim(), nowMillis)
+
+  companion object {
+    const val MODEL = "gemini-3.5-flash-lite"
+    private val JSON_MEDIA_TYPE = "application/json".toMediaType()
+
+    internal fun buildRequestBody(input: String, model: String = MODEL): String {
+      return "{\"model\":\"${model.jsonEscape()}\",\"input\":\"${input.trim().jsonEscape()}\"}"
+    }
+  }
 }
 
 private fun String.jsonEscape() = buildString {

@@ -81,9 +81,25 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import android.Manifest
 import android.content.pm.PackageManager
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.collectAsState
+import com.example.ai.ContextFreshness
 import com.example.ai.GeminiLiveVoiceState
+import com.example.ai.LiveVoiceTurn
+import com.example.ai.RideAwareContextStore
+import com.example.camera.CameraDetectionPipeline
+import com.example.camera.SimulatedCameraFrameSource
+import com.example.camera.SimulationScenario
+import com.example.detection.SimulatedYoloDetector
+import com.example.model.CameraSource
 import com.example.ui.GeminiLiveVoiceViewModel
 import kotlinx.coroutines.delay
+
+private enum class GenieDemoSafetyScenario(val label: String) {
+  REAR_LEFT_MOTORCYCLE("Sim: Rear-left motorcycle"),
+  REAR_RIGHT_CAR("Sim: Rear-right car"),
+  NO_CAMERA_DATA("Sim: Camera unavailable")
+}
 
 @Composable
 fun GenieAssistantScreen(
@@ -92,12 +108,70 @@ fun GenieAssistantScreen(
   voiceState: GeminiLiveVoiceState = GeminiLiveVoiceState.DISCONNECTED,
   onVoiceStart: () -> Unit = {},
   onVoiceStop: () -> Unit = {},
+  voiceError: String? = null,
+  voiceStatusDetail: String? = null,
+  latestVoiceTurn: LiveVoiceTurn? = null,
+  onVoiceFinishTurn: () -> Unit = {},
   modifier: Modifier = Modifier,
   onBack: (() -> Unit)? = null
 ) {
   var genieState by remember { mutableStateOf(GenieState.IDLE) }
-  var prompt by remember { mutableStateOf("Hello, introduce yourself as the RideAware assistant.") }
+  var prompt by remember { mutableStateOf("What is behind me?") }
   var lastGeminiResponse by remember { mutableStateOf<String?>(null) }
+  var lastRecordedVoiceTurnId by remember { mutableStateOf<Long?>(null) }
+  var demoScenario by remember { mutableStateOf(GenieDemoSafetyScenario.REAR_LEFT_MOTORCYCLE) }
+  val contextUpdateTick by RideAwareContextStore.provider.updates.collectAsState()
+  val compactSafetyLabel = remember(contextUpdateTick, demoScenario) {
+    RideAwareContextStore.provider.buildCompactStatusLabel()
+  }
+
+  LaunchedEffect(demoScenario, onBack) {
+    // When opened from Active Ride (onBack != null), MainActivity already feeds the ride camera pipeline.
+    if (onBack != null) return@LaunchedEffect
+    when (demoScenario) {
+      GenieDemoSafetyScenario.NO_CAMERA_DATA -> {
+        RideAwareContextStore.provider.clearCameraSource(CameraSource.REAR)
+        RideAwareContextStore.provider.clearCameraSource(CameraSource.FRONT)
+        RideAwareContextStore.provider.clearActiveAlert()
+      }
+      GenieDemoSafetyScenario.REAR_LEFT_MOTORCYCLE,
+      GenieDemoSafetyScenario.REAR_RIGHT_CAR -> {
+        val rearScenario = if (demoScenario == GenieDemoSafetyScenario.REAR_LEFT_MOTORCYCLE) {
+          SimulationScenario.LEFT_BLIND_SPOT_VEHICLE
+        } else {
+          SimulationScenario.REAR_APPROACHING_VEHICLE
+        }
+        val rearPipeline = CameraDetectionPipeline(
+          frameSource = SimulatedCameraFrameSource(CameraSource.REAR, rearScenario),
+          detector = SimulatedYoloDetector()
+        )
+        val frontPipeline = CameraDetectionPipeline(
+          frameSource = SimulatedCameraFrameSource(CameraSource.FRONT, SimulationScenario.FRONT_LEAD_VEHICLE),
+          detector = SimulatedYoloDetector()
+        )
+        // Warm up 3 frames so TemporalObjectTracker and HazardEvaluator establish track persistence
+        repeat(2) { step ->
+          val t = System.currentTimeMillis() - (2 - step) * 200L
+          rearPipeline.analyzeNextFrame(t)
+          frontPipeline.analyzeNextFrame(t)
+        }
+        while (true) {
+          val now = System.currentTimeMillis()
+          RideAwareContextStore.provider.recordCameraAnalysis(
+            analysis = rearPipeline.analyzeNextFrame(now),
+            isSimulated = true,
+            nowMillis = now
+          )
+          RideAwareContextStore.provider.recordCameraAnalysis(
+            analysis = frontPipeline.analyzeNextFrame(now),
+            isSimulated = true,
+            nowMillis = now
+          )
+          delay(1000)
+        }
+      }
+    }
+  }
   val context = LocalContext.current
   val microphoneLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
     if (granted) onVoiceStart()
@@ -116,6 +190,13 @@ fun GenieAssistantScreen(
       lastGeminiResponse = it
       conversations.add(VoiceConversation(prompt, it))
       genieState = GenieState.SPEAKING
+    }
+  }
+  LaunchedEffect(latestVoiceTurn?.id) {
+    val turn = latestVoiceTurn ?: return@LaunchedEffect
+    if (turn.id != lastRecordedVoiceTurnId) {
+      lastRecordedVoiceTurnId = turn.id
+      conversations.add(VoiceConversation(turn.userTranscript, turn.modelTranscript))
     }
   }
 
@@ -137,6 +218,10 @@ fun GenieAssistantScreen(
     // Simulate thinking then speaking
   }
 
+  val isVoiceActive = voiceState == GeminiLiveVoiceState.CONNECTING ||
+    voiceState == GeminiLiveVoiceState.LISTENING ||
+    voiceState == GeminiLiveVoiceState.SPEAKING
+
   Column(
     modifier = modifier
       .fillMaxSize()
@@ -146,7 +231,7 @@ fun GenieAssistantScreen(
     RideAwareTopBar(
       title = "Geni voice preview",
       onBack = onBack,
-      subtitle = "Scripted examples · microphone is off"
+      subtitle = if (isVoiceActive) "Gemini Live active · microphone streaming" else "Scripted examples · microphone is off"
     )
 
     Column(
@@ -206,11 +291,17 @@ fun GenieAssistantScreen(
           Box(modifier = Modifier.size(8.dp).background(TealPrimary, CircleShape))
           Spacer(modifier = Modifier.width(8.dp))
           Text(
-            text = when (genieState) {
-              GenieState.LISTENING -> "PREVIEWING YOUR PROMPT..."
-              GenieState.THINKING -> "LOADING SAMPLE RESPONSE..."
-              GenieState.SPEAKING -> "SAMPLE RESPONSE"
-              GenieState.IDLE -> "READY • SELECT A SAMPLE PROMPT"
+            text = when (voiceState) {
+              GeminiLiveVoiceState.CONNECTING -> "CONNECTING TO GENI LIVE..."
+              GeminiLiveVoiceState.LISTENING -> "LIVE • LISTENING — SPEAK NOW"
+              GeminiLiveVoiceState.SPEAKING -> "LIVE • GENI IS SPEAKING"
+              GeminiLiveVoiceState.ERROR -> "LIVE VOICE ERROR"
+              GeminiLiveVoiceState.DISCONNECTED -> when (genieState) {
+                GenieState.LISTENING -> "PREVIEWING YOUR PROMPT..."
+                GenieState.THINKING -> "LOADING SAMPLE RESPONSE..."
+                GenieState.SPEAKING -> "SAMPLE RESPONSE"
+                GenieState.IDLE -> "READY • SELECT A SAMPLE PROMPT"
+              }
             },
             color = TealAccent,
             fontSize = 12.sp,
@@ -223,23 +314,62 @@ fun GenieAssistantScreen(
 
         // Sound Waveform
         AudioWaveformVisualizer(
-          isAnimating = genieState == GenieState.SPEAKING || genieState == GenieState.LISTENING,
+          isAnimating = genieState == GenieState.SPEAKING ||
+            genieState == GenieState.LISTENING ||
+            voiceState == GeminiLiveVoiceState.LISTENING ||
+            voiceState == GeminiLiveVoiceState.SPEAKING,
           color = TealPrimary,
           modifier = Modifier.width(180.dp).height(28.dp)
         )
 
-        Button(
-          onClick = {
-            if (voiceState == GeminiLiveVoiceState.DISCONNECTED || voiceState == GeminiLiveVoiceState.ERROR) {
-              if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) onVoiceStart()
-              else microphoneLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            } else onVoiceStop()
-          },
-          modifier = Modifier.testTag("gemini_voice_toggle")
+        Row(
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          verticalAlignment = Alignment.CenterVertically
         ) {
-          Icon(Icons.Filled.Mic, contentDescription = null)
-          Spacer(Modifier.width(6.dp))
-          Text(if (voiceState == GeminiLiveVoiceState.DISCONNECTED || voiceState == GeminiLiveVoiceState.ERROR) "Start voice" else "Stop voice")
+          Button(
+            onClick = {
+              if (voiceState == GeminiLiveVoiceState.DISCONNECTED || voiceState == GeminiLiveVoiceState.ERROR) {
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) onVoiceStart()
+                else microphoneLauncher.launch(Manifest.permission.RECORD_AUDIO)
+              } else onVoiceStop()
+            },
+            modifier = Modifier.testTag("gemini_voice_toggle")
+          ) {
+            Icon(Icons.Filled.Mic, contentDescription = null)
+            Spacer(Modifier.width(6.dp))
+            Text(if (voiceState == GeminiLiveVoiceState.DISCONNECTED || voiceState == GeminiLiveVoiceState.ERROR) "Start voice" else "Stop voice")
+          }
+
+          if (voiceState == GeminiLiveVoiceState.LISTENING) {
+            OutlinedButton(
+              onClick = onVoiceFinishTurn,
+              modifier = Modifier.testTag("gemini_voice_done_speaking")
+            ) {
+              Text("Done speaking", color = TealAccent)
+            }
+          }
+        }
+
+        voiceStatusDetail?.let { detail ->
+          Spacer(modifier = Modifier.height(4.dp))
+          Text(
+            text = detail,
+            color = TealAccent,
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.testTag("gemini_voice_status_detail")
+          )
+        }
+
+        voiceError?.let { error ->
+          Spacer(modifier = Modifier.height(4.dp))
+          Text(
+            text = error,
+            color = Color(0xFFFF8A80),
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.testTag("gemini_voice_error")
+          )
         }
       }
 
@@ -332,14 +462,42 @@ fun GenieAssistantScreen(
         Text(error, color = Color(0xFFFF8A80), fontSize = 12.sp, modifier = Modifier.testTag("gemini_error"))
       }
 
-      // Example Voice Command Suggestion Chips
-      Text(
-        text = "Choose a sample prompt:",
-        color = TextSecondary,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.align(Alignment.Start)
-      )
+      // Example Voice Command Suggestion Chips & Safety Context Status
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Text(
+          text = "Choose a sample prompt:",
+          color = TextSecondary,
+          fontSize = 12.sp,
+          fontWeight = FontWeight.Bold
+        )
+        Box(
+          modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(DarkSurfaceElevated)
+            .border(1.dp, TealPrimary.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+            .clickable(role = Role.Button) {
+              demoScenario = when (demoScenario) {
+                GenieDemoSafetyScenario.REAR_LEFT_MOTORCYCLE -> GenieDemoSafetyScenario.REAR_RIGHT_CAR
+                GenieDemoSafetyScenario.REAR_RIGHT_CAR -> GenieDemoSafetyScenario.NO_CAMERA_DATA
+                GenieDemoSafetyScenario.NO_CAMERA_DATA -> GenieDemoSafetyScenario.REAR_LEFT_MOTORCYCLE
+              }
+            }
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .testTag("genie_safety_context_toggle")
+        ) {
+          Text(
+            text = if (onBack != null) compactSafetyLabel else demoScenario.label,
+            color = TealAccent,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1
+          )
+        }
+      }
 
       Spacer(modifier = Modifier.height(6.dp))
 

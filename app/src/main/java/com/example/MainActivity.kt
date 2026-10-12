@@ -65,6 +65,11 @@ import com.example.ui.SosViewModel
 import com.example.ui.HelmetPairingViewModel
 import com.example.ui.GeminiAssistantViewModel
 import com.example.ui.GeminiLiveVoiceViewModel
+import com.example.ai.RideAwareContextStore
+import com.example.camera.CameraDetectionPipeline
+import com.example.camera.SimulatedCameraFrameSource
+import com.example.detection.SimulatedYoloDetector
+import com.example.model.CameraSource
 import com.example.safety.SafetyAlertManager
 import com.example.ui.rememberLocationPermission
 import com.example.ui.components.RideHistoryStatus
@@ -142,6 +147,9 @@ fun GeniApp() {
   val geminiAssistantState by geminiAssistantViewModel.state.collectAsStateWithLifecycle()
   val geminiLiveVoiceViewModel: GeminiLiveVoiceViewModel = viewModel()
   val geminiLiveVoiceState by geminiLiveVoiceViewModel.state.collectAsStateWithLifecycle()
+  val geminiLiveVoiceError by geminiLiveVoiceViewModel.errorMessage.collectAsStateWithLifecycle()
+  val geminiLiveVoiceStatusDetail by geminiLiveVoiceViewModel.statusDetail.collectAsStateWithLifecycle()
+  val geminiLiveVoiceLatestTurn by geminiLiveVoiceViewModel.latestTurn.collectAsStateWithLifecycle()
   val locationPermission = rememberLocationPermission()
   val emergencyContact = contactsState.contacts.firstOrNull() ?: EmergencyContact(
     name = "", relationship = "", phoneNumber = "", phone = ""
@@ -190,10 +198,38 @@ fun GeniApp() {
     if (currentDestination == AppDestination.RIDES) historyViewModel.refresh()
   }
 
+  LaunchedEffect(helmetStatus) {
+    RideAwareContextStore.provider.updateHelmetStatus(helmetStatus)
+  }
+
+  LaunchedEffect(currentDestination, auxiliaryReturn) {
+    val isRideActiveContext = currentDestination == AppDestination.ACTIVE_RIDE ||
+      (currentDestination == AppDestination.GENIE && auxiliaryReturn == AppDestination.ACTIVE_RIDE)
+    if (isRideActiveContext) {
+      val frontPipeline = CameraDetectionPipeline(
+        frameSource = SimulatedCameraFrameSource(CameraSource.FRONT),
+        detector = SimulatedYoloDetector()
+      )
+      val rearPipeline = CameraDetectionPipeline(
+        frameSource = SimulatedCameraFrameSource(CameraSource.REAR),
+        detector = SimulatedYoloDetector()
+      )
+      while (true) {
+        val now = System.currentTimeMillis()
+        val frontAnalysis = frontPipeline.analyzeNextFrame(now)
+        val rearAnalysis = rearPipeline.analyzeNextFrame(now)
+        RideAwareContextStore.provider.recordCameraAnalysis(frontAnalysis, isSimulated = true, nowMillis = now)
+        RideAwareContextStore.provider.recordCameraAnalysis(rearAnalysis, isSimulated = true, nowMillis = now)
+        delay(1000)
+      }
+    }
+  }
+
   // Back button handling
   BackHandler(enabled = currentDestination != AppDestination.HOME && currentDestination != AppDestination.WELCOME) {
     if (activeSafetyAlert != null) {
       activeSafetyAlert = null
+      RideAwareContextStore.provider.clearActiveAlert()
     } else when (currentDestination) {
       AppDestination.FEATURE_INTRO -> currentDestination = AppDestination.WELCOME
       AppDestination.PERMISSIONS -> currentDestination = AppDestination.FEATURE_INTRO
@@ -375,16 +411,26 @@ fun GeniApp() {
                 rideMaxSpeedKmH = maxSpeed
               },
               onCameraAnalysis = { analysis ->
+                RideAwareContextStore.provider.recordCameraAnalysis(
+                  analysis = analysis,
+                  isSimulated = analysis.frame.bitmap == null
+                )
                 safetyAlertManager.onHazards(analysis.hazards).firstOrNull()?.let { alert ->
                   activeSafetyAlert = alert
                   rideSafetyEventCount++
+                  geminiLiveVoiceViewModel.announceSafetyAlert(
+                    alert = alert,
+                    isSimulated = analysis.frame.bitmap == null
+                  )
                 }
               },
               onOpenLiveCamera = { auxiliaryReturn = AppDestination.ACTIVE_RIDE; currentDestination = AppDestination.LIVE_CAMERAS },
               onOpenGenie = { auxiliaryReturn = currentDestination; currentDestination = AppDestination.GENIE },
               onTriggerHazardAlert = {
                 rideSafetyEventCount++
-                activeSafetyAlert = MockDataProvider.sampleAlerts.first()
+                val sampleAlert = MockDataProvider.sampleAlerts.first()
+                activeSafetyAlert = sampleAlert
+                geminiLiveVoiceViewModel.announceSafetyAlert(sampleAlert, isSimulated = true)
               },
               onTriggerCrashSos = {
                 openSimulatedHelmetSos()
@@ -469,6 +515,10 @@ fun GeniApp() {
               voiceState = geminiLiveVoiceState,
               onVoiceStart = geminiLiveVoiceViewModel::start,
               onVoiceStop = geminiLiveVoiceViewModel::stop,
+              voiceError = geminiLiveVoiceError,
+              voiceStatusDetail = geminiLiveVoiceStatusDetail,
+              latestVoiceTurn = geminiLiveVoiceLatestTurn,
+              onVoiceFinishTurn = geminiLiveVoiceViewModel::finishTurn,
               onBack = if (auxiliaryReturn == AppDestination.ACTIVE_RIDE) ({ currentDestination = AppDestination.ACTIVE_RIDE }) else null
             )
           }
@@ -523,10 +573,15 @@ fun GeniApp() {
             onSaveEvent = {
               triggerSaveMoment()
               activeSafetyAlert = null
+              RideAwareContextStore.provider.clearActiveAlert()
             },
-            onDismiss = { activeSafetyAlert = null },
+            onDismiss = {
+              activeSafetyAlert = null
+              RideAwareContextStore.provider.clearActiveAlert()
+            },
             onSos = {
               activeSafetyAlert = null
+              RideAwareContextStore.provider.clearActiveAlert()
               openSimulatedHelmetSos()
             }
           )

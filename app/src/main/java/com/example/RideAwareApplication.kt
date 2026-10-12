@@ -14,6 +14,12 @@ class RideAwareApplication : Application() {
     RideAwareNotifications.createChannel(this)
 
     // Run once per app process, outside Compose and activity recreation.
+    if (com.google.firebase.FirebaseApp.getApps(this).isEmpty() &&
+      com.google.firebase.FirebaseApp.initializeApp(this) == null
+    ) {
+      Log.w(AUTH_TAG, "FirebaseApp not initialized in this environment; skipping auth sync")
+      return
+    }
     val auth = FirebaseAuth.getInstance()
     val existingUser = auth.currentUser
     if (existingUser != null) {

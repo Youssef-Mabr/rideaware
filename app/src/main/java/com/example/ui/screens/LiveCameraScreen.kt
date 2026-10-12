@@ -35,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -54,6 +55,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ai.RideAwareContextStore
+import com.example.camera.CameraDetectionPipeline
+import com.example.camera.SimulatedCameraFrameSource
+import com.example.detection.SimulatedYoloDetector
 import com.example.model.CameraSource
 import com.example.ui.components.GloveButton
 import com.example.ui.components.GloveOutlinedButton
@@ -69,6 +74,7 @@ import com.example.ui.theme.TealPrimary
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
+import kotlinx.coroutines.delay
 
 @Composable
 fun LiveCameraScreen(
@@ -80,6 +86,35 @@ fun LiveCameraScreen(
   var isSplitView by rememberSaveable { mutableStateOf(false) }
   var showDetectionBoxes by rememberSaveable { mutableStateOf(true) }
   var isFullScreen by rememberSaveable { mutableStateOf(false) }
+
+  LaunchedEffect(currentSource, isSplitView) {
+    val frontPipeline = CameraDetectionPipeline(
+      frameSource = SimulatedCameraFrameSource(CameraSource.FRONT),
+      detector = SimulatedYoloDetector()
+    )
+    val rearPipeline = CameraDetectionPipeline(
+      frameSource = SimulatedCameraFrameSource(CameraSource.REAR),
+      detector = SimulatedYoloDetector()
+    )
+    while (true) {
+      val now = System.currentTimeMillis()
+      if (isSplitView || currentSource == CameraSource.FRONT) {
+        RideAwareContextStore.provider.recordCameraAnalysis(
+          analysis = frontPipeline.analyzeNextFrame(now),
+          isSimulated = true,
+          nowMillis = now
+        )
+      }
+      if (isSplitView || currentSource == CameraSource.REAR) {
+        RideAwareContextStore.provider.recordCameraAnalysis(
+          analysis = rearPipeline.analyzeNextFrame(now),
+          isSimulated = true,
+          nowMillis = now
+        )
+      }
+      delay(1000)
+    }
+  }
 
   BackHandler(enabled = isFullScreen) { isFullScreen = false }
 

@@ -8,6 +8,8 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import okio.ByteString
+import com.example.ai.GeminiLiveVoiceAssistantImpl
 import org.json.JSONObject
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -37,9 +39,13 @@ class GeminiLiveProtocolDiagnosticTest {
       override fun onOpen(webSocket: WebSocket, response: Response) {
         Log.i(TAG, "onOpen http=${response.code}")
         events += "onOpen:${response.code}"
-        webSocket.send("""{"setup":{"model":"models/gemini-3.8-live","generationConfig":{"responseModalities":["AUDIO"],"speechConfig":{"voiceConfig":{"prebuiltVoiceConfig":{"voiceName":"Puck"}}}}}}""")
+        webSocket.send("""{"setup":{"model":"models/${GeminiLiveVoiceAssistantImpl.MODEL}","generationConfig":{"responseModalities":["AUDIO"],"speechConfig":{"voiceConfig":{"prebuiltVoiceConfig":{"voiceName":"Puck"}}}}}}""")
         Log.i(TAG, "setupSent")
         events += "setupSent"
+      }
+
+      override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+        onMessage(webSocket, bytes.utf8())
       }
 
       override fun onMessage(webSocket: WebSocket, text: String) {
