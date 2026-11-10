@@ -31,7 +31,11 @@ class BundledTestVideoSource(
     val clipId = "clip-${UUID.randomUUID()}"
     val output = File(File(context.filesDir, "ride-recordings"), "$clipId.mp4")
     output.parentFile?.mkdirs()
-    context.assets.open(assetName).use { input -> output.outputStream().use { input.copyTo(it) } }
+    try {
+      context.assets.open(assetName).use { input -> output.outputStream().use { input.copyTo(it) } }
+    } catch (e: Exception) {
+      android.util.Log.w("BundledTestVideoSource", "Sample video asset '$assetName' not found; using simulated video fallback: ${e.message}")
+    }
     return BundledRecordingSession(
       RecordingClipMetadata(clipId, output.absolutePath, durationSeconds, startedAtMillis, assetName)
     )

@@ -145,15 +145,19 @@ fun GloveOutlinedButton(
   icon: ImageVector? = null,
   borderColor: Color = DarkSurfaceBorder,
   textColor: Color = TextPrimary,
+  minHeight: Dp = 50.dp,
+  fontSize: androidx.compose.ui.unit.TextUnit = 14.sp,
+  contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
   testTag: String = "glove_outlined_button"
 ) {
   OutlinedButton(
     onClick = onClick,
     modifier = modifier
       .fillMaxWidth()
-      .heightIn(min = 56.dp)
+      .heightIn(min = minHeight)
       .testTag(testTag),
     shape = RoundedCornerShape(16.dp),
+    contentPadding = contentPadding,
     colors = ButtonDefaults.outlinedButtonColors(contentColor = textColor),
     border = ButtonDefaults.outlinedButtonBorder.copy(brush = Brush.horizontalGradient(listOf(borderColor, borderColor)))
   ) {
@@ -162,10 +166,17 @@ fun GloveOutlinedButton(
       horizontalArrangement = Arrangement.Center
     ) {
       if (icon != null) {
-        Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(20.dp))
-        Spacer(modifier = Modifier.width(8.dp))
+        Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.width(6.dp))
       }
-      Text(text = text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+      Text(
+        text = text,
+        fontSize = fontSize,
+        fontWeight = FontWeight.SemiBold,
+        textAlign = TextAlign.Center,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+      )
     }
   }
 }

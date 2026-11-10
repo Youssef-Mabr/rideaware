@@ -140,7 +140,7 @@ fun VideoPlaybackScreen(
             .fillMaxWidth()
             .height(140.dp)
         ) {
-          if (clip.filePath != null && File(clip.filePath).exists()) {
+          if (clip.filePath != null && File(clip.filePath).let { it.exists() && it.length() > 0 }) {
             AndroidView(
               factory = { context -> VideoView(context) },
               update = { videoView ->
@@ -173,7 +173,7 @@ fun VideoPlaybackScreen(
             .fillMaxWidth()
             .height(140.dp)
         ) {
-          if (clip.filePath != null && File(clip.filePath).exists()) {
+          if (clip.filePath != null && File(clip.filePath).let { it.exists() && it.length() > 0 }) {
             AndroidView(
               factory = { context -> VideoView(context) },
               update = { videoView ->

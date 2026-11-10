@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.ErrorDemoType
@@ -279,14 +280,15 @@ fun HomeScreen(
         Box(
           modifier = Modifier
             .weight(1f)
+            .height(124.dp)
             .clip(RoundedCornerShape(18.dp))
             .background(DarkSurface)
             .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(18.dp))
             .clickable(role = Role.Button) { onOpenLiveCameras() }
-            .padding(16.dp)
+            .padding(14.dp)
             .testTag("home_live_cameras_button")
         ) {
-          Column {
+          Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
             Row(
               modifier = Modifier.fillMaxWidth(),
               horizontalArrangement = Arrangement.SpaceBetween,
@@ -312,18 +314,23 @@ fun HomeScreen(
                 Text("GENI", color = TealAccent, fontSize = 12.sp, fontWeight = FontWeight.Black)
               }
             }
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(
-              text = "Camera preview",
-              color = TextPrimary,
-              fontSize = 15.sp,
-              fontWeight = FontWeight.Bold
-            )
-            Text(
-              text = "Simulated front & rear",
-              color = TextSecondary,
-              fontSize = 12.sp
-            )
+            Column {
+              Text(
+                text = "Camera preview",
+                color = TextPrimary,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+              )
+              Text(
+                text = "Simulated front & rear",
+                color = TextSecondary,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+              )
+            }
           }
         }
 
@@ -331,14 +338,15 @@ fun HomeScreen(
         Box(
           modifier = Modifier
             .weight(1f)
+            .height(124.dp)
             .clip(RoundedCornerShape(18.dp))
             .background(DarkSurface)
             .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(18.dp))
             .clickable(role = Role.Button) { onOpenGenie() }
-            .padding(16.dp)
+            .padding(14.dp)
             .testTag("home_genie_button")
         ) {
-          Column {
+          Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
             Row(
               modifier = Modifier.fillMaxWidth(),
               horizontalArrangement = Arrangement.SpaceBetween,
@@ -359,18 +367,23 @@ fun HomeScreen(
               }
               Text("GENI", color = CyanAccent, fontSize = 12.sp, fontWeight = FontWeight.Black)
             }
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(
-              text = "Geni Voice",
-              color = TextPrimary,
-              fontSize = 15.sp,
-              fontWeight = FontWeight.Bold
-            )
-            Text(
-              text = "Try sample responses",
-              color = TextSecondary,
-              fontSize = 12.sp
-            )
+            Column {
+              Text(
+                text = "Geni Voice",
+                color = TextPrimary,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+              )
+              Text(
+                text = "Try sample responses",
+                color = TextSecondary,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+              )
+            }
           }
         }
       }

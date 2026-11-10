@@ -6,8 +6,23 @@ import com.example.recording.TripRecordingSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [36])
 class TripRecordingTest {
+  @Test fun testBundledTestVideoSourceHandlesMissingAssetGracefully() {
+    val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+    val source = com.example.recording.BundledTestVideoSource(context)
+    val session = source.start(1000L)
+    val metadata = session.stop(5000L)
+    assertTrue(metadata.clipId.isNotBlank())
+    assertTrue(metadata.filePath.endsWith(".mp4"))
+    assertEquals(30, metadata.durationSeconds)
+  }
+
   @Test fun recordingSessionFinalizesClipMetadata() {
     val source = FakeRecordingSource()
     val session = source.start(1_000L)

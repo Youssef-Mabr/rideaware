@@ -151,9 +151,7 @@ fun GeniApp() {
   val geminiLiveVoiceStatusDetail by geminiLiveVoiceViewModel.statusDetail.collectAsStateWithLifecycle()
   val geminiLiveVoiceLatestTurn by geminiLiveVoiceViewModel.latestTurn.collectAsStateWithLifecycle()
   val locationPermission = rememberLocationPermission()
-  val emergencyContact = contactsState.contacts.firstOrNull() ?: EmergencyContact(
-    name = "", relationship = "", phoneNumber = "", phone = ""
-  )
+  val emergencyContact = contactsState.contacts.firstOrNull() ?: MockDataProvider.defaultEmergencyContact
   val context = LocalContext.current
   val preferences = remember { context.getSharedPreferences("rideaware_preferences", Context.MODE_PRIVATE) }
   val screenState = rememberSaveableStateHolder()
@@ -390,7 +388,12 @@ fun GeniApp() {
                 rideMaxSpeedKmH = 58
                 rideSafetyEventCount = 0
                 rideSaveRequested = false
-                activeRecordingSession = recordingSource.start()
+                try {
+                  activeRecordingSession = recordingSource.start()
+                } catch (e: Exception) {
+                  android.util.Log.e("MainActivity", "Failed to start recording session", e)
+                  activeRecordingSession = null
+                }
                 screenState.removeState(AppDestination.ACTIVE_RIDE.name)
                 currentDestination = AppDestination.ACTIVE_RIDE
               },
